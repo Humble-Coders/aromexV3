@@ -31,10 +31,45 @@ class _AddExpenseState extends State<AddExpense> {
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
-
     getCategories();
+
+    // Add listener to category controller to handle manual typing
+    categoryController.addListener(_onCategoryTextChanged);
+  }
+
+  @override
+  void dispose() {
+    categoryController.removeListener(_onCategoryTextChanged);
+    categoryController.dispose();
+    amountController.dispose();
+    dateController.dispose();
+    notesController.dispose();
+    super.dispose();
+  }
+
+  void _onCategoryTextChanged() {
+    final currentText = categoryController.text;
+
+    // If controller text is different from selected category
+    if (currentText != selectedCategory) {
+      // Check if the typed text exists in categories
+      if (categories?.contains(currentText) == true) {
+        // User typed an existing category name
+        if (selectedCategory != currentText) {
+          setState(() {
+            selectedCategory = currentText;
+          });
+        }
+      } else {
+        // User is typing something new - clear selection if text is not empty
+        if (currentText.isNotEmpty && selectedCategory != null) {
+          setState(() {
+            selectedCategory = null;
+          });
+        }
+      }
+    }
   }
 
   Future<void> getCategories() async {
@@ -44,17 +79,183 @@ class _AddExpenseState extends State<AddExpense> {
               .collection("Data")
               .doc("ExpenseCategories")
               .get();
-      categories = snapshot.get("categories")?.cast<String>();
+
+      if (snapshot.exists) {
+        categories = snapshot.get("categories")?.cast<String>();
+      } else {
+        // Create document if it doesn't exist
+        await FirebaseFirestore.instance
+            .collection("Data")
+            .doc("ExpenseCategories")
+            .set({"categories": []});
+        categories = [];
+      }
       setState(() {});
     } catch (e) {
       print("Error fetching categories: $e");
+      categories = [];
+      setState(() {});
     }
+  }
+
+  void createCategory(String item) async {
+    print("🔥 Creating category: $item");
+
+    // Validate item is not empty
+    if (item.trim().isEmpty) {
+      setState(() {
+        categoryError = "Category name cannot be empty";
+      });
+      return;
+    }
+
+    // Check if category already exists
+    if (categories?.contains(item) == true) {
+      setState(() {
+        selectedCategory = item;
+        categoryController.text = item;
+        categoryError = null;
+      });
+      print("✅ Category already exists, selected: $item");
+      return;
+    }
+
+    setState(() {
+      categoryController.text = "Creating category...";
+      categoryError = null;
+    });
+
+    try {
+      print("📤 Sending to Firebase...");
+
+      // Get the document first to ensure it exists
+      DocumentReference docRef = FirebaseFirestore.instance
+          .collection("Data")
+          .doc("ExpenseCategories");
+
+      DocumentSnapshot doc = await docRef.get();
+
+      if (!doc.exists) {
+        // Create document if it doesn't exist
+        await docRef.set({
+          "categories": [item],
+        });
+        print("📄 Document created with category: $item");
+      } else {
+        // Update existing document
+        await docRef.update({
+          "categories": FieldValue.arrayUnion([item]),
+        });
+        print("📝 Document updated with category: $item");
+      }
+
+      // Success - update UI
+      setState(() {
+        if (categories == null) {
+          categories = [item];
+        } else {
+          categories!.add(item);
+        }
+        selectedCategory = item;
+        categoryController.text = item;
+        categoryError = null;
+      });
+
+      print("✅ Category created successfully: $item");
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Category '$item' created successfully!"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (error) {
+      print("❌ Error creating category: $error");
+
+      setState(() {
+        categoryError = "Failed to create category: ${error.toString()}";
+        categoryController.text = "";
+        selectedCategory = null;
+      });
+
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Failed to create category: ${error.toString()}"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void clearCategorySelection() {
+    setState(() {
+      selectedCategory = null;
+      categoryController.clear();
+      categoryError = null;
+    });
+  }
+
+  bool validate() {
+    bool isValid = true;
+
+    // Validate amount
+    if (amountController.text.isEmpty) {
+      setState(() {
+        amountError = "Amount is required";
+      });
+      isValid = false;
+    } else {
+      try {
+        double.parse(amountController.text);
+        setState(() {
+          amountError = null;
+        });
+      } catch (e) {
+        setState(() {
+          amountError = "Invalid amount";
+        });
+        isValid = false;
+      }
+    }
+
+    // Validate category
+    if (selectedCategory == null && categoryController.text.isEmpty) {
+      setState(() {
+        categoryError = "Category is required";
+      });
+      isValid = false;
+    } else {
+      setState(() {
+        categoryError = null;
+      });
+    }
+
+    // Validate date
+    if (dateController.text.isEmpty) {
+      setState(() {
+        dateError = "Date is required";
+      });
+      isValid = false;
+    } else {
+      setState(() {
+        dateError = null;
+      });
+    }
+
+    return isValid;
   }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+
     return Card(
       color: colorScheme.secondary,
       child: SingleChildScrollView(
@@ -107,11 +308,15 @@ class _AddExpenseState extends State<AddExpense> {
                             description: "Enter expense amount",
                             onChanged: (val) {
                               setState(() {
-                                try {
-                                  double.parse(val);
-                                  amountError = null;
-                                } catch (e) {
-                                  amountError = "Invalid amount";
+                                if (val.isEmpty) {
+                                  amountError = "Amount is required";
+                                } else {
+                                  try {
+                                    double.parse(val);
+                                    amountError = null;
+                                  } catch (e) {
+                                    amountError = "Invalid amount";
+                                  }
                                 }
                               });
                             },
@@ -119,29 +324,62 @@ class _AddExpenseState extends State<AddExpense> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: SearchableDropdown<String>(
-                            title: "Category",
-                            description: "Select or add a new category",
-                            controller: categoryController,
-                            items: categories,
-                            onChanged: (item) {
-                              setState(() {
-                                selectedCategory = item;
-                              });
-                            },
-                            selectedItem: selectedCategory,
-                            getLabel: (item) => item,
-                            onClear: () {
-                              setState(() {
-                                selectedCategory = null;
-                              });
-                            },
-                            allowAddingNew: true,
-                            onNewItemSelected: (item) {
-                              // Create category
-                              createCategory(item);
-                            },
-                            defaultConstructor: () => "",
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: SearchableDropdown<String>(
+                                      title: "Category",
+                                      description:
+                                          "Select or add a new category",
+                                      controller: categoryController,
+                                      items: categories,
+                                      onChanged: (item) {
+                                        print(
+                                          "🔄 onChanged called with: $item",
+                                        );
+                                        setState(() {
+                                          selectedCategory = item;
+                                          categoryError = null;
+                                        });
+                                      },
+                                      selectedItem: selectedCategory,
+                                      getLabel: (item) => item,
+                                      onClear: () {
+                                        print("🧹 onClear called");
+                                        clearCategorySelection();
+                                      },
+                                      allowAddingNew: true,
+                                      onNewItemSelected: (item) {
+                                        print(
+                                          "✨ onNewItemSelected called with: $item",
+                                        );
+                                        createCategory(item);
+                                      },
+                                      defaultConstructor: () => "",
+                                    ),
+                                  ),
+
+                                  // Add clear button
+                                ],
+                              ),
+                              // Show selected category
+
+                              // Show error
+                              if (categoryError != null)
+                                Container(
+                                  margin: EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    categoryError!,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: colorScheme.error,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -210,48 +448,105 @@ class _AddExpenseState extends State<AddExpense> {
                         ),
                         const SizedBox(width: 12),
                         ElevatedButton(
-                          onHover: (isHover) {
-                            if (isHover) {
-                              if (!validate()) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text("Please fill")),
-                                );
+                          onPressed: () async {
+                            if (!validate()) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    "Please fill all required fields",
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+
+                            // If user typed a new category but didn't add it
+                            if (selectedCategory == null &&
+                                categoryController.text.isNotEmpty) {
+                              // Ask user if they want to add this as new category
+                              bool? shouldAdd = await showDialog<bool>(
+                                context: context,
+                                builder:
+                                    (context) => AlertDialog(
+                                      title: Text("Add New Category?"),
+                                      content: Text(
+                                        "Do you want to add '${categoryController.text}' as a new category?",
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed:
+                                              () =>
+                                                  Navigator.pop(context, false),
+                                          child: Text("Cancel"),
+                                        ),
+                                        TextButton(
+                                          onPressed:
+                                              () =>
+                                                  Navigator.pop(context, true),
+                                          child: Text("Add"),
+                                        ),
+                                      ],
+                                    ),
+                              );
+
+                              if (shouldAdd == true) {
+                                createCategory(categoryController.text);
+                                return; // Wait for category creation to complete
+                              } else {
+                                return;
                               }
                             }
+
+                            showDialog(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (context) {
+                                return Center(
+                                  child: CircularProgressIndicator(),
+                                );
+                              },
+                            );
+
+                            try {
+                              // Add expense to firebase
+                              Balance? balance = await Balance.fromType(
+                                BalanceType.expenseRecord,
+                              );
+
+                              String categoryToUse =
+                                  selectedCategory ?? categoryController.text;
+
+                              await balance.addAmount(
+                                double.parse(amountController.text),
+                                category: categoryToUse,
+                                expenseNote: notesController.text,
+                                transactionType: TransactionType.self,
+                              );
+
+                              Navigator.pop(context); // Close loading dialog
+                              Navigator.pop(
+                                context,
+                              ); // Close add expense dialog
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text("Expense added successfully"),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            } catch (e) {
+                              Navigator.pop(context); // Close loading dialog
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    "Failed to add expense: ${e.toString()}",
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
                           },
-                          onPressed:
-                              !(validate())
-                                  ? null
-                                  : () async {
-                                    showDialog(
-                                      context: context,
-                                      barrierDismissible: false,
-                                      builder: (context) {
-                                        return Center(
-                                          child: CircularProgressIndicator(),
-                                        );
-                                      },
-                                    );
-                                    // Add expense to firebase
-                                    Balance? balance = await Balance.fromType(
-                                      BalanceType.expenseRecord,
-                                    );
-                                    await balance.addAmount(
-                                      double.parse(amountController.text),
-                                      category: selectedCategory,
-                                      expenseNote: notesController.text,
-                                      transactionType: TransactionType.self,
-                                    );
-                                    Navigator.pop(context);
-                                    Navigator.pop(context);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          "Expense added successfully",
-                                        ),
-                                      ),
-                                    );
-                                  },
                           style: ElevatedButton.styleFrom(
                             padding: EdgeInsets.symmetric(
                               horizontal: 28,
@@ -274,42 +569,5 @@ class _AddExpenseState extends State<AddExpense> {
         ),
       ),
     );
-  }
-
-  bool validate() {
-    return amountController.text.isNotEmpty &&
-        selectedCategory != null &&
-        dateController.text.isNotEmpty &&
-        amountError == null &&
-        categoryError == null &&
-        dateError == null &&
-        notesError == null;
-  }
-
-  void createCategory(String item) {
-    // Add to firebase
-    setState(() {
-      categoryController.text = "Creating category...";
-    });
-    FirebaseFirestore.instance
-        .collection("Data")
-        .doc("ExpenseCategories")
-        .update({
-          "categories": FieldValue.arrayUnion([item]),
-        })
-        .then((_) {
-          setState(() {
-            categories?.add(item);
-            selectedCategory = item;
-            categoryController.text = item;
-            categoryError = null;
-          });
-        })
-        .catchError((error) {
-          setState(() {
-            categoryError = "Failed to create category";
-          });
-          print("Error creating category: $error");
-        });
   }
 }

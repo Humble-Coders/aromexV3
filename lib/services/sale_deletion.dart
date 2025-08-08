@@ -56,7 +56,9 @@ Future<void> deleteSaleWithReversal(Sale sale) async {
             .get();
 
     if (!balanceDoc.exists) {
-      throw Exception('Balance document not found: ${sale.paymentSource.name}');
+      throw Exception(
+        'Balance document not found: ${sale.paymentSource?.name}',
+      );
     }
 
     final balanceData = balanceDoc.data();
@@ -69,7 +71,7 @@ Future<void> deleteSaleWithReversal(Sale sale) async {
       'amount': balanceAmount + (sale.amount - sale.credit),
     });
 
-    // 4. Reverse totalOwe if credit was used 
+    // 4. Reverse totalOwe if credit was used
     if (sale.credit != 0) {
       final oweDoc =
           await FirebaseFirestore.instance

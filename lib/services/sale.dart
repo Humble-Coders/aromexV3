@@ -12,7 +12,7 @@ Future<void> createSale(aromex_order.Order order, Sale sale) async {
     await phone.save();
   }
 
-  await addBalance(sale.paymentSource, sale.total, sale.credit, saleRef);
+  await addBalance(sale.paymentSource!, sale.total, sale.credit, saleRef);
   await addCreditToCustomer(order.scref!, sale.credit);
   await addSaleToCustomer(order.scref!, saleRef);
   await updateSaleStats(sale.total, order.scref!);
@@ -24,9 +24,11 @@ Future<void> addCreditToMiddleman(
   DocumentReference? middleman,
   double credit,
 ) async {
-  if (middleman == null ) return;
+  if (middleman == null) return;
 
-  final docRef = FirebaseFirestore.instance.collection('Middlemen').doc(middleman.id);
+  final docRef = FirebaseFirestore.instance
+      .collection('Middlemen')
+      .doc(middleman.id);
   final snapshot = await docRef.get();
   final data = snapshot.data()!;
   final currentBalance = (data['balance'] ?? 0.0) as num;

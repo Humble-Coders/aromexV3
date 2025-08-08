@@ -231,7 +231,9 @@ class _ActionSectionState extends State<ActionSection> {
                     height: 40,
                   ),
                   title: 'Inventory',
-                  onTap: () {},
+                  onTap: () {
+                    widget.onPageChange(Pages.InventoryPage);
+                  },
                 ),
               ),
 
@@ -244,8 +246,10 @@ class _ActionSectionState extends State<ActionSection> {
                     width: 40,
                     height: 40,
                   ),
-                  title: 'Reports',
-                  onTap: () {},
+                  title: 'Statistics',
+                  onTap: () {
+                    widget.onPageChange(Pages.StatisticsPage);
+                  },
                 ),
               ),
             ],

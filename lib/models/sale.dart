@@ -15,7 +15,7 @@ class Sale extends GenericFirebaseObject<Sale> {
   final double amount;
   final double gst;
   final double pst;
-  final BalanceType paymentSource;
+  final BalanceType? paymentSource;
   final double total;
   final double paid;
   final double credit;
@@ -28,6 +28,11 @@ class Sale extends GenericFirebaseObject<Sale> {
   final String? customerName;
   final double originalPrice;
 
+  // New nullable payment fields
+  final double? bankPaid;
+  final double? upiPaid;
+  final double? cashPaid;
+
   Sale({
     super.id,
     super.snapshot,
@@ -35,7 +40,7 @@ class Sale extends GenericFirebaseObject<Sale> {
     required this.amount,
     required this.gst,
     required this.pst,
-    required this.paymentSource,
+    this.paymentSource = BalanceType.cash,
     required this.date,
     this.total = 0.0,
     this.paid = 0.0,
@@ -48,6 +53,10 @@ class Sale extends GenericFirebaseObject<Sale> {
     this.mCredit = 0.0,
     required this.customerName,
     required this.originalPrice,
+    // Nullable payment fields
+    this.bankPaid,
+    this.upiPaid,
+    this.cashPaid,
   });
 
   static const collectionName = "Sales";
@@ -74,6 +83,10 @@ class Sale extends GenericFirebaseObject<Sale> {
       "mPaid": mPaid,
       "mCredit": mCredit,
       "customerName": customerName,
+      // Only add payment fields if they are not null
+      if (bankPaid != null) "bankPaid": bankPaid,
+      if (upiPaid != null) "upiPaid": upiPaid,
+      if (cashPaid != null) "cashPaid": cashPaid,
     };
   }
 
@@ -81,7 +94,7 @@ class Sale extends GenericFirebaseObject<Sale> {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return Sale(
       id: doc.id,
-      orderNumber: data["orderNumber"],
+      orderNumber: data["orderNumber"] ?? "",
       originalPrice: (data["originalPrice"] ?? 0.0).toDouble(),
       amount: (data['amount'] ?? 0.0).toDouble(),
       gst: (data['gst'] ?? 0.0).toDouble(),
@@ -90,22 +103,97 @@ class Sale extends GenericFirebaseObject<Sale> {
         (type) => type.toString() == 'BalanceType.${data["paymentSource"]}',
         orElse: () => BalanceType.cash,
       ),
-      date: (data['date'] as Timestamp).toDate(),
+      date: (data['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
       total: (data['total'] ?? 0.0).toDouble(),
       paid: (data['paid'] ?? 0.0).toDouble(),
       credit: (data['credit'] ?? 0.0).toDouble(),
       customerRef: data["customerId"],
       phones:
-          (data['phones'] as List<dynamic>)
-              .map((e) => e as DocumentReference)
-              .toList(),
+          (data['phones'] as List<dynamic>?)
+              ?.map((e) => e as DocumentReference)
+              .toList() ??
+          [],
       snapshot: doc,
       middlemanRef: data["middlemanId"],
       mTotal: (data['mTotal'] ?? 0.0).toDouble(),
       mPaid: (data['mPaid'] ?? 0.0).toDouble(),
       mCredit: (data['mCredit'] ?? 0.0).toDouble(),
       customerName: data["customerName"] ?? "",
+      // Handle nullable payment fields - keep as null if not present
+      bankPaid:
+          data["bankPaid"] != null
+              ? (data["bankPaid"] as num).toDouble()
+              : null,
+      upiPaid:
+          data["upiPaid"] != null ? (data["upiPaid"] as num).toDouble() : null,
+      cashPaid:
+          data["cashPaid"] != null
+              ? (data["cashPaid"] as num).toDouble()
+              : null,
     );
+  }
+
+  // Helper method to create a copy with updated values
+  Sale copyWith({
+    String? orderNumber,
+    DateTime? date,
+    double? amount,
+    double? gst,
+    double? pst,
+    BalanceType? paymentSource,
+    double? total,
+    double? paid,
+    double? credit,
+    DocumentReference? customerRef,
+    List<DocumentReference>? phones,
+    DocumentReference? middlemanRef,
+    double? mTotal,
+    double? mPaid,
+    double? mCredit,
+    String? customerName,
+    double? originalPrice,
+    double? bankPaid,
+    double? upiPaid,
+    double? cashPaid,
+  }) {
+    return Sale(
+      id: id,
+      snapshot: snapshot,
+      orderNumber: orderNumber ?? this.orderNumber,
+      date: date ?? this.date,
+      amount: amount ?? this.amount,
+      gst: gst ?? this.gst,
+      pst: pst ?? this.pst,
+      paymentSource: paymentSource ?? this.paymentSource,
+      total: total ?? this.total,
+      paid: paid ?? this.paid,
+      credit: credit ?? this.credit,
+      customerRef: customerRef ?? this.customerRef,
+      phones: phones ?? this.phones,
+      middlemanRef: middlemanRef ?? this.middlemanRef,
+      mTotal: mTotal ?? this.mTotal,
+      mPaid: mPaid ?? this.mPaid,
+      mCredit: mCredit ?? this.mCredit,
+      customerName: customerName ?? this.customerName,
+      originalPrice: originalPrice ?? this.originalPrice,
+      bankPaid: bankPaid ?? this.bankPaid,
+      upiPaid: upiPaid ?? this.upiPaid,
+      cashPaid: cashPaid ?? this.cashPaid,
+    );
+  }
+
+  // Helper method to get total payment amount
+  double get totalPaymentAmount {
+    double total = 0.0;
+    if (bankPaid != null) total += bankPaid!;
+    if (upiPaid != null) total += upiPaid!;
+    if (cashPaid != null) total += cashPaid!;
+    return total;
+  }
+
+  // Helper method to check if any payment method is used
+  bool get hasPaymentDetails {
+    return bankPaid != null || upiPaid != null || cashPaid != null;
   }
 }
 
@@ -118,6 +206,7 @@ Future<void> generateBill({
 }) async {
   List<BillItem> items = [];
   Map<Phone, bool> processedPhones = {};
+
   for (var phone in phones) {
     if (processedPhones[phone] == true) continue;
 
@@ -163,5 +252,6 @@ Future<void> generateBill({
     note: note,
     adjustment: adjustment,
   );
+
   await generatePdfInvoice(bill);
 }

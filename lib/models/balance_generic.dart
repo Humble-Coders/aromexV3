@@ -1,7 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:aromex/models/transaction.dart' as AT;
 
-enum BalanceType { creditCard, bank, cash, expenseRecord, totalDue, totalOwe }
+enum BalanceType {
+  creditCard,
+  bank,
+  cash,
+  expenseRecord,
+  totalDue,
+  totalOwe,
+  upi,
+}
 
 final Map<BalanceType, String> balanceTypeTitles = {
   BalanceType.creditCard: 'Credit Card',
@@ -10,6 +18,7 @@ final Map<BalanceType, String> balanceTypeTitles = {
   BalanceType.expenseRecord: 'Expense Record',
   BalanceType.totalDue: 'Total Due',
   BalanceType.totalOwe: 'Total Owe',
+  BalanceType.upi: 'upi',
 };
 
 class Balance {

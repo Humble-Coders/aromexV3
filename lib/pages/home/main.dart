@@ -2,9 +2,18 @@ import 'package:aromex/pages/home/pages/expense_record.dart';
 import 'package:aromex/pages/home/pages/home.dart';
 import 'package:aromex/pages/home/pages/purchase_record.dart';
 import 'package:aromex/pages/home/pages/sale_record.dart';
+import 'package:aromex/pages/inventory/main.dart';
+import 'package:aromex/pages/statistics/main.dart';
 import 'package:flutter/material.dart';
 
-enum Pages { home, saleRecord, purchaseRecord, expenseRecord }
+enum Pages {
+  home,
+  saleRecord,
+  purchaseRecord,
+  expenseRecord,
+  InventoryPage,
+  StatisticsPage,
+}
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -34,7 +43,10 @@ class _HomePageState extends State<HomePage> {
       HomePageBase(onPageChange: changePage),
       SaleRecord(onBack: () => changePage(Pages.home)),
       PurchaseRecord(onBack: () => changePage(Pages.home)),
+
       ExpenseRecord(onBack: () => changePage(Pages.home)),
+      InventoryPage(onBack: () => changePage(Pages.home)),
+      StatisticsNavigationPage(onBack: () => changePage(Pages.home)),
     ]);
   }
 

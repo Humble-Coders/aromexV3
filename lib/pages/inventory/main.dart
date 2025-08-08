@@ -16,7 +16,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class InventoryPage extends StatefulWidget {
-  const InventoryPage({super.key});
+  final VoidCallback? onBack;
+  const InventoryPage({super.key, this.onBack});
 
   @override
   State<InventoryPage> createState() => _InventoryPageState();
@@ -158,92 +159,125 @@ class _InventoryPageState extends State<InventoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.vertical,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Back button
-          if (currentPage > 1)
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24.0,
-                vertical: 12,
-              ),
-              child: IconButton(
-                onPressed: () {
-                  setState(() {
-                    if (currentPage == 2) {
-                      currentPage = 1;
-                      selectedStorageLocation = __selectedStorageLocation;
-                      selectedPhoneBrand = __selectedPhoneBrand;
+    final colorScheme = Theme.of(context).colorScheme;
 
-                      phoneModelSearchQuery = "";
-                      phoneModelSearchController.clear();
-                    } else if (currentPage == 3) {
-                      currentPage = 2;
-                      selectedPhoneModel = null;
-                    }
-                  });
-                },
-                icon: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.arrow_back_ios_new_outlined, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      currentPage == 2 ? "Back to Brands" : "Back to Models",
-                      style: Theme.of(context).textTheme.titleMedium,
+    return Scaffold(
+      body: Card(
+        margin: const EdgeInsets.all(12),
+        color: colorScheme.secondary,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.vertical,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Main back button (similar to PurchaseRecord)
+              if (currentPage == 1)
+                Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: widget.onBack,
+                  ),
+                )
+              // Navigation back button (for internal pages)
+              else
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24.0,
+                    vertical: 12,
+                  ),
+                  child: IconButton(
+                    onPressed: () {
+                      setState(() {
+                        if (currentPage == 2) {
+                          currentPage = 1;
+                          selectedStorageLocation = __selectedStorageLocation;
+                          selectedPhoneBrand = __selectedPhoneBrand;
+
+                          phoneModelSearchQuery = "";
+                          phoneModelSearchController.clear();
+                        } else if (currentPage == 3) {
+                          currentPage = 2;
+                          selectedPhoneModel = null;
+                        }
+                      });
+                    },
+                    icon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.arrow_back_ios_new_outlined, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          currentPage == 2
+                              ? "Back to Brands"
+                              : "Back to Models",
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            )
-          else
-            const SizedBox(height: 24),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child:
-                currentPage == 1
-                    ? LocationBrandFilter(
-                      storageLocations: storageLocations,
-                      phoneBrands: phoneBrands,
-                      onLocationSelected: (selectedLocation) {
-                        setState(() {
-                          __selectedStorageLocation = selectedLocation;
-                          selectedStorageLocation = selectedLocation;
-                        });
-                      },
-                      onBrandSelected: (selectedBrand) {
-                        setState(() {
-                          __selectedPhoneBrand = selectedBrand;
-                          selectedPhoneBrand = selectedBrand;
-                        });
-                      },
-                      selectedStorageLocation: __selectedStorageLocation,
-                      selectedPhoneBrand: __selectedPhoneBrand,
-                    )
-                    : currentPage == 2
-                    ? PhoneModelFilter(
-                      onModelSearchChanged: (p0) {
-                        setState(() {
-                          phoneModelSearchQuery = p0;
-                        });
-                      },
-                      phoneModelSearchController: phoneModelSearchController,
-                    )
-                    : LocationPhoneFilter(
-                      onFilterChanged: (capacity, color, carrier, status) {
-                        setState(() {
-                          selectedCapacity = capacity;
-                          selectedColor = color;
-                          selectedCarrier = carrier;
-                          selectedIsActive = status;
-                        });
-                      },
-                      capacities:
-                          filter(
+
+              if (currentPage == 1) const SizedBox(height: 12),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child:
+                    currentPage == 1
+                        ? LocationBrandFilter(
+                          storageLocations: storageLocations,
+                          phoneBrands: phoneBrands,
+                          onLocationSelected: (selectedLocation) {
+                            setState(() {
+                              __selectedStorageLocation = selectedLocation;
+                              selectedStorageLocation = selectedLocation;
+                            });
+                          },
+                          onBrandSelected: (selectedBrand) {
+                            setState(() {
+                              __selectedPhoneBrand = selectedBrand;
+                              selectedPhoneBrand = selectedBrand;
+                            });
+                          },
+                          selectedStorageLocation: __selectedStorageLocation,
+                          selectedPhoneBrand: __selectedPhoneBrand,
+                        )
+                        : currentPage == 2
+                        ? PhoneModelFilter(
+                          onModelSearchChanged: (p0) {
+                            setState(() {
+                              phoneModelSearchQuery = p0;
+                            });
+                          },
+                          phoneModelSearchController:
+                              phoneModelSearchController,
+                        )
+                        : LocationPhoneFilter(
+                          onFilterChanged: (capacity, color, carrier, status) {
+                            setState(() {
+                              selectedCapacity = capacity;
+                              selectedColor = color;
+                              selectedCarrier = carrier;
+                              selectedIsActive = status;
+                            });
+                          },
+                          capacities:
+                              filter(
+                                    phones!,
+                                    selectedStorageLocation,
+                                    selectedPhoneBrand,
+                                    selectedPhoneModel,
+                                    selectedCapacity,
+                                    selectedColor,
+                                    selectedCarrier,
+                                    selectedIsActive,
+                                  )
+                                  .map((phone) => phone.capacity.toInt())
+                                  .toSet()
+                                  .toList(),
+                          colors:
+                              filter(
                                 phones!,
                                 selectedStorageLocation,
                                 selectedPhoneBrand,
@@ -252,181 +286,173 @@ class _InventoryPageState extends State<InventoryPage> {
                                 selectedColor,
                                 selectedCarrier,
                                 selectedIsActive,
-                              )
-                              .map((phone) => phone.capacity.toInt())
-                              .toSet()
-                              .toList(),
-                      colors:
-                          filter(
-                            phones!,
-                            selectedStorageLocation,
-                            selectedPhoneBrand,
-                            selectedPhoneModel,
-                            selectedCapacity,
-                            selectedColor,
-                            selectedCarrier,
-                            selectedIsActive,
-                          ).map((phone) => phone.color).toSet().toList(),
-                      carriers:
-                          filter(
-                            phones!,
-                            selectedStorageLocation,
-                            selectedPhoneBrand,
-                            selectedPhoneModel,
-                            selectedCapacity,
-                            selectedColor,
-                            selectedCarrier,
-                            selectedIsActive,
-                          ).map((phone) => phone.carrier).toSet().toList(),
-                      isActive:
-                          filter(
-                            phones!,
-                            selectedStorageLocation,
-                            selectedPhoneBrand,
-                            selectedPhoneModel,
-                            selectedCapacity,
-                            selectedColor,
-                            selectedCarrier,
-                            selectedIsActive,
-                          ).map((phone) => phone.status).toSet().toList(),
-                    ),
-          ),
-          const SizedBox(height: 24),
-          currentPage == 1
-              ? GridView.builder(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                physics: const NeverScrollableScrollPhysics(),
-                shrinkWrap: true,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 1.5,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                ),
-                itemCount:
-                    __selectedStorageLocation != null
-                        ? 1
-                        : storageLocations?.length ?? 0,
-                itemBuilder: (context, index) {
-                  StorageLocation location =
-                      __selectedStorageLocation ?? storageLocations![index];
-
-                  // Get count for brands for this location
-                  List<LocationInventoryData> data = [];
-                  Map<PhoneBrand, int> brandCountMap = {};
-                  for (var phone in locationPhoneMap[location] ?? []) {
-                    PhoneBrand brand = PhoneBrand.fromFirestore(phone.brand);
-                    if (__selectedPhoneBrand != null &&
-                        brand.id != __selectedPhoneBrand!.id) {
-                      continue; // Skip if brand doesn't match
-                    }
-                    if (brandCountMap.containsKey(brand)) {
-                      brandCountMap[brand] = brandCountMap[brand]! + 1;
-                    } else {
-                      brandCountMap[brand] = 1;
-                    }
-                  }
-                  for (var entry in brandCountMap.entries) {
-                    data.add(
-                      LocationInventoryData(
-                        phoneBrands: entry.key,
-                        count: entry.value,
-                      ),
-                    );
-                  }
-
-                  // Sort data by brand name (ascending)
-                  data.sort(
-                    (a, b) => a.phoneBrands.name.compareTo(b.phoneBrands.name),
-                  );
-
-                  return LocationInventoryBrands(
-                    storageLocation: location,
-                    data: phones != null ? data : null,
-                    onBrandSelected:
-                        (location, brand) => {
-                          selectedStorageLocation = location,
-                          selectedPhoneBrand = brand,
-                          setState(() {
-                            currentPage = 2; // Move to Phone Model page
-                          }),
-                        },
-                  );
-                },
-              )
-              : currentPage == 2
-              // Keep aspect ratio of 1.5 for Phone Model page
-              ? Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                height: MediaQuery.of(context).size.height * 0.6,
-                child: LocationInventoryModels(
-                  storageLocation: selectedStorageLocation!,
-                  phoneBrand: selectedPhoneBrand!,
-                  data:
-                      phones != null
-                          ? filter(
-                                locationPhoneMap[selectedStorageLocation]!,
+                              ).map((phone) => phone.color).toSet().toList(),
+                          carriers:
+                              filter(
+                                phones!,
                                 selectedStorageLocation,
                                 selectedPhoneBrand,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                              )
-                              .where(
-                                (phone) =>
-                                    phone.model != null &&
-                                    PhoneModel.fromFirestore(
-                                      phone.model!,
-                                    ).name.toLowerCase().contains(
-                                      phoneModelSearchQuery.toLowerCase(),
-                                    ),
-                              )
-                              .map(
-                                (phone) => LocationInventoryDataModels(
-                                  phoneModel: PhoneModel.fromFirestore(
-                                    phone.model!,
-                                  ),
-                                  count:
-                                      1, // Assuming each phone is counted once
-                                ),
-                              )
-                              .toList()
-                          : null,
-                  onModelSelected: (model) {
-                    setState(() {
-                      currentPage = 3; // Move to Phone page
-                      selectedPhoneModel = model;
-                    });
-                  },
-                ),
-              )
-              : SelectableRegion(
-                selectionControls: MaterialTextSelectionControls(),
-                focusNode: FocusNode(),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                  child: LocationPhones(
-                    phones: filter(
-                      phones!,
-                      selectedStorageLocation,
-                      selectedPhoneBrand,
-                      selectedPhoneModel,
-                      selectedCapacity,
-                      selectedColor,
-                      selectedCarrier,
-                      selectedIsActive,
-                    ),
-                    storageLocation: selectedStorageLocation!,
-                    phoneBrand: selectedPhoneBrand!,
-                    phoneModel: selectedPhoneModel!,
-                  ),
-                ),
+                                selectedPhoneModel,
+                                selectedCapacity,
+                                selectedColor,
+                                selectedCarrier,
+                                selectedIsActive,
+                              ).map((phone) => phone.carrier).toSet().toList(),
+                          isActive:
+                              filter(
+                                phones!,
+                                selectedStorageLocation,
+                                selectedPhoneBrand,
+                                selectedPhoneModel,
+                                selectedCapacity,
+                                selectedColor,
+                                selectedCarrier,
+                                selectedIsActive,
+                              ).map((phone) => phone.status).toSet().toList(),
+                        ),
               ),
-        ],
+              const SizedBox(height: 24),
+              currentPage == 1
+                  ? GridView.builder(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    physics: const NeverScrollableScrollPhysics(),
+                    shrinkWrap: true,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 1.5,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                        ),
+                    itemCount:
+                        __selectedStorageLocation != null
+                            ? 1
+                            : storageLocations?.length ?? 0,
+                    itemBuilder: (context, index) {
+                      StorageLocation location =
+                          __selectedStorageLocation ?? storageLocations![index];
+
+                      // Get count for brands for this location
+                      List<LocationInventoryData> data = [];
+                      Map<PhoneBrand, int> brandCountMap = {};
+                      for (var phone in locationPhoneMap[location] ?? []) {
+                        PhoneBrand brand = PhoneBrand.fromFirestore(
+                          phone.brand,
+                        );
+                        if (__selectedPhoneBrand != null &&
+                            brand.id != __selectedPhoneBrand!.id) {
+                          continue; // Skip if brand doesn't match
+                        }
+                        if (brandCountMap.containsKey(brand)) {
+                          brandCountMap[brand] = brandCountMap[brand]! + 1;
+                        } else {
+                          brandCountMap[brand] = 1;
+                        }
+                      }
+                      for (var entry in brandCountMap.entries) {
+                        data.add(
+                          LocationInventoryData(
+                            phoneBrands: entry.key,
+                            count: entry.value,
+                          ),
+                        );
+                      }
+
+                      // Sort data by brand name (ascending)
+                      data.sort(
+                        (a, b) =>
+                            a.phoneBrands.name.compareTo(b.phoneBrands.name),
+                      );
+
+                      return LocationInventoryBrands(
+                        storageLocation: location,
+                        data: phones != null ? data : null,
+                        onBrandSelected:
+                            (location, brand) => {
+                              selectedStorageLocation = location,
+                              selectedPhoneBrand = brand,
+                              setState(() {
+                                currentPage = 2; // Move to Phone Model page
+                              }),
+                            },
+                      );
+                    },
+                  )
+                  : currentPage == 2
+                  // Keep aspect ratio of 1.5 for Phone Model page
+                  ? Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    height: MediaQuery.of(context).size.height * 0.6,
+                    child: LocationInventoryModels(
+                      storageLocation: selectedStorageLocation!,
+                      phoneBrand: selectedPhoneBrand!,
+                      data:
+                          phones != null
+                              ? filter(
+                                    locationPhoneMap[selectedStorageLocation]!,
+                                    selectedStorageLocation,
+                                    selectedPhoneBrand,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                  )
+                                  .where(
+                                    (phone) =>
+                                        phone.model != null &&
+                                        PhoneModel.fromFirestore(
+                                          phone.model!,
+                                        ).name.toLowerCase().contains(
+                                          phoneModelSearchQuery.toLowerCase(),
+                                        ),
+                                  )
+                                  .map(
+                                    (phone) => LocationInventoryDataModels(
+                                      phoneModel: PhoneModel.fromFirestore(
+                                        phone.model!,
+                                      ),
+                                      count:
+                                          1, // Assuming each phone is counted once
+                                    ),
+                                  )
+                                  .toList()
+                              : null,
+                      onModelSelected: (model) {
+                        setState(() {
+                          currentPage = 3; // Move to Phone page
+                          selectedPhoneModel = model;
+                        });
+                      },
+                    ),
+                  )
+                  : SelectableRegion(
+                    selectionControls: MaterialTextSelectionControls(),
+                    focusNode: FocusNode(),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                      child: LocationPhones(
+                        phones: filter(
+                          phones!,
+                          selectedStorageLocation,
+                          selectedPhoneBrand,
+                          selectedPhoneModel,
+                          selectedCapacity,
+                          selectedColor,
+                          selectedCarrier,
+                          selectedIsActive,
+                        ),
+                        storageLocation: selectedStorageLocation!,
+                        phoneBrand: selectedPhoneBrand!,
+                        phoneModel: selectedPhoneModel!,
+                      ),
+                    ),
+                  ),
+            ],
+          ),
+        ),
       ),
     );
   }

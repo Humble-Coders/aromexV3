@@ -50,7 +50,7 @@ class PaymentDetailCard extends StatelessWidget {
                             'Amount:',
                             style: textTheme.bodyLarge?.copyWith(
                               color: colorScheme.primary,
-                              fontWeight: FontWeight.w600
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -71,7 +71,7 @@ class PaymentDetailCard extends StatelessWidget {
                             'PST:',
                             style: textTheme.bodyLarge?.copyWith(
                               color: colorScheme.primary,
-                              fontWeight: FontWeight.w600
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -92,7 +92,7 @@ class PaymentDetailCard extends StatelessWidget {
                             'GST:',
                             style: textTheme.bodyLarge?.copyWith(
                               color: colorScheme.primary,
-                              fontWeight: FontWeight.w600
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -112,13 +112,13 @@ class PaymentDetailCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Paid:',
                             style: textTheme.bodyLarge?.copyWith(
                               color: colorScheme.primary,
-                              fontWeight: FontWeight.w600
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -139,7 +139,7 @@ class PaymentDetailCard extends StatelessWidget {
                             'Credit:',
                             style: textTheme.bodyLarge?.copyWith(
                               color: colorScheme.primary,
-                              fontWeight: FontWeight.w600
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -160,7 +160,7 @@ class PaymentDetailCard extends StatelessWidget {
                             'Payment Source:',
                             style: textTheme.bodyLarge?.copyWith(
                               color: colorScheme.primary,
-                              fontWeight: FontWeight.w600
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 2),
