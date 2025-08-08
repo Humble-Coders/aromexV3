@@ -83,6 +83,39 @@ class _CustomerProfileState extends State<CustomerProfile> {
     }
   }
 
+  String formatPaymentSource(Sale sale) {
+    List<String> paymentParts = [];
+
+    // Check for cash payment - keep original format
+    if (sale.cashPaid != null && sale.cashPaid! > 0) {
+      paymentParts.add('Cash(${sale.cashPaid!.toInt()})');
+    }
+
+    // Check for UPI payment - keep original format
+    if (sale.upiPaid != null && sale.upiPaid! > 0) {
+      paymentParts.add('UPI(${sale.upiPaid!.toInt()})');
+    }
+
+    // Check for bank payment - keep original format
+    if (sale.bankPaid != null && sale.bankPaid! > 0) {
+      paymentParts.add('Bank(${sale.bankPaid!.toInt()})');
+    }
+
+    // Check for credit payment - keep original format
+
+    // If no specific payment amounts, fall back to original paymentSource
+    if (paymentParts.isEmpty) {
+      final paymentSourceTitle = balanceTypeTitles[sale.paymentSource];
+      if (paymentSourceTitle != null) {
+        return paymentSourceTitle.toString();
+      }
+      return "cash";
+    }
+
+    // Join multiple payment methods with comma and space - keep original format
+    return paymentParts.join(', ');
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -132,7 +165,8 @@ class _CustomerProfileState extends State<CustomerProfile> {
                       title: "Credit Details",
                       amount: currentCustomer.balance,
                       updatedAt: updatedAt,
-                      isLoading: false, onTap: () {  },
+                      isLoading: false,
+                      onTap: () {},
                     ),
                   ),
                   const Expanded(child: SizedBox()),
@@ -141,46 +175,46 @@ class _CustomerProfileState extends State<CustomerProfile> {
               const SizedBox(height: 16),
               sales.isNotEmpty
                   ? GenericCustomTable<Sale>(
-                onTap: (p) {
-                  setState(() {
-                    saleDetailPage = SaleDetailPage(
-                      sale: p,
-                      onBack: () {
-                        setState(() {
-                          saleDetailPage = null;
-                        });
-                      },
-                    );
-                  });
-                },
-                entries: sales,
-                headers: [
-                  "Date",
-                  "Order No.",
-                  "Amount",
-                  "Payment Source",
-                  "Credit",
-                ],
-                valueGetters: [
+                    onTap: (p) {
+                      setState(() {
+                        saleDetailPage = SaleDetailPage(
+                          sale: p,
+                          onBack: () {
+                            setState(() {
+                              saleDetailPage = null;
+                            });
+                          },
+                        );
+                      });
+                    },
+                    entries: sales,
+                    headers: [
+                      "Date",
+                      "Order No.",
+                      "Amount",
+                      "Payment Source",
+                      "Credit",
+                    ],
+                    valueGetters: [
                       (p) => DateFormat.yMd().format(p.date),
                       (p) => p.orderNumber,
                       (p) =>
-                      NumberFormat.currency(symbol: '\$').format(p.amount),
-                      (p) => balanceTypeTitles[p.paymentSource]!,
+                          NumberFormat.currency(symbol: '\$').format(p.amount),
+                      (p) => formatPaymentSource(p),
                       (p) =>
-                      NumberFormat.currency(symbol: '\$').format(p.credit),
-                ],
-              )
+                          NumberFormat.currency(symbol: '\$').format(p.credit),
+                    ],
+                  )
                   : isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : Center(
-                child: Text(
-                  'No Sales Found',
-                  style: textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSecondary,
+                    child: Text(
+                      'No Sales Found',
+                      style: textTheme.bodyLarge?.copyWith(
+                        color: colorScheme.onSecondary,
+                      ),
+                    ),
                   ),
-                ),
-              ),
             ],
           ),
         ),

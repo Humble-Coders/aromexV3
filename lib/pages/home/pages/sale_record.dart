@@ -146,17 +146,50 @@ class _SaleRecordState extends State<SaleRecord> {
     }
   }
 
+  String formatPaymentSource(Sale sale) {
+    List<String> paymentParts = [];
+
+    // Check for cash payment - keep original format
+    if (sale.cashPaid != null && sale.cashPaid! > 0) {
+      paymentParts.add('Cash(${sale.cashPaid!.toInt()})');
+    }
+
+    // Check for UPI payment - keep original format
+    if (sale.upiPaid != null && sale.upiPaid! > 0) {
+      paymentParts.add('UPI(${sale.upiPaid!.toInt()})');
+    }
+
+    // Check for bank payment - keep original format
+    if (sale.bankPaid != null && sale.bankPaid! > 0) {
+      paymentParts.add('Bank(${sale.bankPaid!.toInt()})');
+    }
+
+    // Check for credit payment - keep original format
+
+    // If no specific payment amounts, fall back to original paymentSource
+    if (paymentParts.isEmpty) {
+      final paymentSourceTitle = balanceTypeTitles[sale.paymentSource];
+      if (paymentSourceTitle != null) {
+        return paymentSourceTitle.toString();
+      }
+      return "cash";
+    }
+
+    // Join multiple payment methods with comma and space - keep original format
+    return paymentParts.join(', ');
+  }
+
   void filterSales({bool takeBackToFirstPage = true}) {
     List<Sale> baseList =
         searchQuery.isEmpty
             ? sales
             : sales.where((p) {
               final customerName = p.customerName?.toLowerCase() ?? '';
+              final paymentSourceFormatted =
+                  formatPaymentSource(p).toLowerCase();
               return p.orderNumber.toLowerCase().contains(searchQuery) ||
                   customerName.contains(searchQuery) ||
-                  balanceTypeTitles[p.paymentSource]!.toLowerCase().contains(
-                    searchQuery,
-                  );
+                  paymentSourceFormatted.contains(searchQuery);
             }).toList();
 
     // Apply date range filter if active (for sales already loaded)
@@ -337,7 +370,7 @@ class _SaleRecordState extends State<SaleRecord> {
         saleDetailPage ??
             Scaffold(
               body: Card(
-                margin: const EdgeInsets.all(12),
+                margin: const EdgeInsets.all(1),
                 color: colorScheme.secondary,
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(24),
@@ -431,7 +464,7 @@ class _SaleRecordState extends State<SaleRecord> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 11),
                       isLoading
                           ? const Center(child: CircularProgressIndicator())
                           : Column(
@@ -457,12 +490,15 @@ class _SaleRecordState extends State<SaleRecord> {
                                   "Customer",
                                   "Payment Source",
                                 ],
+                                // Update the valueGetters in your GenericCustomTable
                                 valueGetters: [
                                   (p) => p.date.toString(),
                                   (p) => p.orderNumber,
                                   (p) => formatCurrency(p.total),
                                   (p) => p.customerName ?? 'N/A',
-                                  (p) => balanceTypeTitles[p.paymentSource]!,
+                                  (p) => formatPaymentSource(
+                                    p,
+                                  ), // Updated this line
                                 ],
                                 rowActions:
                                     (sale) => [
