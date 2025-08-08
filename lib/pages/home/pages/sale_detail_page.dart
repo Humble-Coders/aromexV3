@@ -52,6 +52,39 @@ class _SaleDetailPageState extends State<SaleDetailPage> {
     });
   }
 
+  String formatPaymentSource(Sale sale) {
+    List<String> paymentParts = [];
+
+    // Check for cash payment - keep original format
+    if (sale.cashPaid != null && sale.cashPaid! > 0) {
+      paymentParts.add('Cash(${sale.cashPaid!.toInt()})');
+    }
+
+    // Check for UPI payment - keep original format
+    if (sale.upiPaid != null && sale.upiPaid! > 0) {
+      paymentParts.add('UPI(${sale.upiPaid!.toInt()})');
+    }
+
+    // Check for bank payment - keep original format
+    if (sale.bankPaid != null && sale.bankPaid! > 0) {
+      paymentParts.add('Bank(${sale.bankPaid!.toInt()})');
+    }
+
+    // Check for credit payment - keep original format
+
+    // If no specific payment amounts, fall back to original paymentSource
+    if (paymentParts.isEmpty) {
+      final paymentSourceTitle = balanceTypeTitles[sale.paymentSource];
+      if (paymentSourceTitle != null) {
+        return paymentSourceTitle.toString();
+      }
+      return "cash";
+    }
+
+    // Join multiple payment methods with comma and space - keep original format
+    return paymentParts.join(', ');
+  }
+
   Future<void> fetchCustomerInfo() async {
     try {
       final doc = await widget.sale.customerRef.get();
@@ -169,8 +202,7 @@ class _SaleDetailPageState extends State<SaleDetailPage> {
                                                     0.6,
                                                 child: Column(
                                                   mainAxisSize:
-                                                      MainAxisSize
-                                                          .min, 
+                                                      MainAxisSize.min,
                                                   children: [
                                                     CustomTextField(
                                                       title: "Notes",
@@ -304,14 +336,16 @@ class _SaleDetailPageState extends State<SaleDetailPage> {
                           const SizedBox(width: 16),
                           Expanded(
                             flex: 2,
-                            child: PaymentDetailCard(
+                            child: // In sale_detail_page.dart, update the PaymentDetailCard usage:
+                                PaymentDetailCard(
                               amount: widget.sale.amount.toString(),
                               gst: widget.sale.gst.toString(),
                               pst: widget.sale.pst.toString(),
                               paid: widget.sale.paid.toString(),
                               credit: widget.sale.credit.toString(),
-                              paymentSource:
-                                  balanceTypeTitles[widget.sale.paymentSource]!,
+                              paymentSource: formatPaymentSource(
+                                widget.sale,
+                              ), // Changed this line
                             ),
                           ),
                         ],
