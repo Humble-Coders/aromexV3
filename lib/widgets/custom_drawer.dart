@@ -1,3 +1,4 @@
+import 'package:aromex/AddContactInfo.dart';
 import 'package:aromex/pages/customer/main.dart';
 import 'package:aromex/pages/home/main.dart';
 import 'package:aromex/pages/inventory/main.dart';
@@ -126,7 +127,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     });
                   },
                   onProfileTap: () {
-                    // Show confirmation dialog for logout
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AddContactInfo(),
+                      ),
+                    );
                   },
                 ),
                 Expanded(child: _pages[_selectedIndex].page),

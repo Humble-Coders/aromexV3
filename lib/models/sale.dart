@@ -242,8 +242,8 @@ Future<void> generateBill({
     }
   }
 
-  // Create the bill
-  Bill bill = Bill(
+  // Create the bill with dynamic admin info
+  Bill bill = await createBillWithAdminInfo(
     time: sale.date,
     customer: BillCustomer(
       name: customer.name,
