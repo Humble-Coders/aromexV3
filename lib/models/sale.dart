@@ -85,7 +85,7 @@ class Sale extends GenericFirebaseObject<Sale> {
       "customerName": customerName,
       // Only add payment fields if they are not null
       if (bankPaid != null) "bankPaid": bankPaid,
-      if (upiPaid != null) "upiPaid": upiPaid,
+      if (upiPaid != null) "cardPaid": upiPaid,
       if (cashPaid != null) "cashPaid": cashPaid,
     };
   }
@@ -125,7 +125,9 @@ class Sale extends GenericFirebaseObject<Sale> {
               ? (data["bankPaid"] as num).toDouble()
               : null,
       upiPaid:
-          data["upiPaid"] != null ? (data["upiPaid"] as num).toDouble() : null,
+          data["cardPaid"] != null
+              ? (data["cardPaid"] as num).toDouble()
+              : null,
       cashPaid:
           data["cashPaid"] != null
               ? (data["cashPaid"] as num).toDouble()

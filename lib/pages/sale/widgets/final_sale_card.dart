@@ -285,22 +285,23 @@ class _FinalSaleCardState extends State<FinalSaleCard> {
                               // UPI Field
                               Expanded(
                                 child: CustomTextField(
-                                  title: "UPI",
+                                  title: "Card",
                                   textController: _upiController,
-                                  description: "UPI payment",
+                                  description: "Credir Card Pay",
                                   error: upiError,
 
                                   onChanged: (value) {
                                     if (value.isNotEmpty &&
                                         double.tryParse(value) == null) {
                                       setState(() {
-                                        upiError = "UPI must be a valid number";
+                                        upiError =
+                                            "Number must be a valid number";
                                       });
                                     } else if (value.isNotEmpty &&
                                         double.parse(value) < 0) {
                                       setState(() {
                                         upiError =
-                                            "UPI amount cannot be negative";
+                                            "Card amount cannot be negative";
                                       });
                                     } else {
                                       setState(() {

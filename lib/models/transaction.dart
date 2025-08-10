@@ -20,6 +20,9 @@ class Transaction {
   final DocumentReference? purchaseRef;
   final String? note;
   final String? category;
+  final double? cashPaid;
+  final double? bankPaid;
+  final double? creditCardPaid;
 
   Transaction({
     required this.amount,
@@ -28,6 +31,9 @@ class Transaction {
     this.saleRef,
     this.purchaseRef,
     this.snapshot,
+    this.bankPaid,
+    this.cashPaid,
+    this.creditCardPaid,
     this.type = TransactionType.unknown,
     this.category,
     this.note,
@@ -61,11 +67,23 @@ class Transaction {
               )
               .key,
       note: json['note'],
+      cashPaid:
+          json['cashPaid'] != null
+              ? (json['cashPaid'] as num).toDouble()
+              : null,
+      bankPaid:
+          json['bankPaid'] != null
+              ? (json['bankPaid'] as num).toDouble()
+              : null,
+      creditCardPaid:
+          json['creditCardPaid'] != null
+              ? (json['creditCardPaid'] as num).toDouble()
+              : null,
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
+    Map<String, dynamic> data = {
       'amount': amount,
       'time': time,
       'saleRef': saleRef,
@@ -74,5 +92,43 @@ class Transaction {
       'note': note,
       'category': category,
     };
+
+    // Add payment fields only if they have values
+    if (cashPaid != null && cashPaid! > 0) {
+      data['cashPaid'] = cashPaid;
+    }
+    if (bankPaid != null && bankPaid! > 0) {
+      data['bankPaid'] = bankPaid;
+    }
+    if (creditCardPaid != null && creditCardPaid! > 0) {
+      data['creditCardPaid'] = creditCardPaid;
+    }
+
+    return data;
+  }
+
+  // Helper method to format payment source similar to sales
+  String formatPaymentSource() {
+    List<String> paymentParts = [];
+
+    if (cashPaid != null && cashPaid! > 0) {
+      paymentParts.add('Cash(${cashPaid!.toInt()})');
+    }
+
+    if (bankPaid != null && bankPaid! > 0) {
+      paymentParts.add('Bank(${bankPaid!.toInt()})');
+    }
+
+    if (creditCardPaid != null && creditCardPaid! > 0) {
+      paymentParts.add('Credit Card(${creditCardPaid!.toInt()})');
+    }
+
+    // If no specific payment amounts, return default
+    if (paymentParts.isEmpty) {
+      return "Not specified";
+    }
+
+    // Join multiple payment methods with comma and space
+    return paymentParts.join(', ');
   }
 }

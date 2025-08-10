@@ -16,7 +16,7 @@ Future<void> createPurchase(aromex_order.Order order, Purchase purchase) async {
   }
 
   await deductBalance(
-    purchase.paymentSource,
+    purchase.paymentSource!,
     purchase.total,
     purchase.credit,
     purchaseRef,
@@ -27,7 +27,7 @@ Future<void> createPurchase(aromex_order.Order order, Purchase purchase) async {
 }
 
 Future<void> deductBalance(
-  BalanceType paymentSource,
+  BalanceType? paymentSource,
   double amount,
   double credit,
   DocumentReference purchaseRef,
@@ -35,7 +35,7 @@ Future<void> deductBalance(
   amount -= credit;
 
   await Future.wait([
-    Balance.fromType(paymentSource).then((balance) async {
+    Balance.fromType(paymentSource!).then((balance) async {
       await balance.removeAmount(
         amount,
         transactionType: TransactionType.purchase,

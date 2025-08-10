@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:aromex/models/balance_generic.dart';
 import 'package:aromex/models/generic_firebase_object.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -10,12 +12,14 @@ class Purchase extends GenericFirebaseObject<Purchase> {
   final double amount;
   final double gst;
   final double pst;
-  final BalanceType paymentSource;
+  final BalanceType? paymentSource;
   final double total;
   final double paid;
   final double credit;
   final String supplierName;
-
+  final double? bankPaid;
+  final double? upiPaid;
+  final double? cashPaid;
   Purchase({
     super.id,
     super.snapshot,
@@ -25,12 +29,15 @@ class Purchase extends GenericFirebaseObject<Purchase> {
     required this.amount,
     required this.gst,
     required this.pst,
-    required this.paymentSource,
+    this.paymentSource = BalanceType.cash,
     required this.date,
     this.total = 0.0,
     this.paid = 0.0,
     this.credit = 0.0,
     required this.supplierName,
+    this.bankPaid,
+    this.upiPaid,
+    this.cashPaid,
   });
 
   static const collectionName = "Purchases";
@@ -48,6 +55,10 @@ class Purchase extends GenericFirebaseObject<Purchase> {
       "pst": pst,
       "paymentSource": balanceTypeTitles[paymentSource],
       "date": date,
+      // Only add payment fields if they are not null
+      if (bankPaid != null) "bankPaid": bankPaid,
+      if (upiPaid != null) "cardPaid": upiPaid,
+      if (cashPaid != null) "cashPaid": cashPaid,
       "total": total,
       "paid": paid,
       "credit": credit,
@@ -75,6 +86,18 @@ class Purchase extends GenericFirebaseObject<Purchase> {
       credit: (data["credit"] ?? 0.0).toDouble(),
       snapshot: doc,
       supplierName: data["supplierName"] ?? "",
+      bankPaid:
+          data["bankPaid"] != null
+              ? (data["bankPaid"] as num).toDouble()
+              : null,
+      upiPaid:
+          data["cardPaid"] != null
+              ? (data["cardPaid"] as num).toDouble()
+              : null,
+      cashPaid:
+          data["cashPaid"] != null
+              ? (data["cashPaid"] as num).toDouble()
+              : null,
     );
   }
 }

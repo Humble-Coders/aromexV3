@@ -66,6 +66,39 @@ class _PurchaseRecordState extends State<PurchaseRecord> {
     });
   }
 
+  String formatPaymentSource(Purchase pur) {
+    List<String> paymentParts = [];
+
+    // Check for cash payment - keep original format
+    if (pur.cashPaid != null && pur.cashPaid! > 0) {
+      paymentParts.add('Cash(${pur.cashPaid!.toInt()})');
+    }
+
+    // Check for UPI payment - keep original format
+    if (pur.upiPaid != null && pur.upiPaid! > 0) {
+      paymentParts.add('UPI(${pur.upiPaid!.toInt()})');
+    }
+
+    // Check for bank payment - keep original format
+    if (pur.bankPaid != null && pur.bankPaid! > 0) {
+      paymentParts.add('Bank(${pur.bankPaid!.toInt()})');
+    }
+
+    // Check for credit payment - keep original format
+
+    // If no specific payment amounts, fall back to original paymentSource
+    if (paymentParts.isEmpty) {
+      final paymentSourceTitle = balanceTypeTitles[pur.paymentSource];
+      if (paymentSourceTitle != null) {
+        return paymentSourceTitle.toString();
+      }
+      return "cash";
+    }
+
+    // Join multiple payment methods with comma and space - keep original format
+    return paymentParts.join(', ');
+  }
+
   Future<void> fetchStats() async {
     try {
       final snapshot =
@@ -403,7 +436,9 @@ class _PurchaseRecordState extends State<PurchaseRecord> {
                                         style: TextStyle(
                                           color:
                                               isDateRangeActive
-                                                  ? Theme.of(context).primaryColor
+                                                  ? Theme.of(
+                                                    context,
+                                                  ).primaryColor
                                                   : Colors.black54,
                                           fontWeight:
                                               isDateRangeActive
@@ -412,7 +447,8 @@ class _PurchaseRecordState extends State<PurchaseRecord> {
                                         ),
                                         overflow: TextOverflow.ellipsis,
                                       ),
-                                      onPressed: () => _selectDateRange(context),
+                                      onPressed:
+                                          () => _selectDateRange(context),
                                     ),
                                   ),
                                   if (isDateRangeActive)
@@ -458,7 +494,7 @@ class _PurchaseRecordState extends State<PurchaseRecord> {
                                   (p) => p.orderNumber,
                                   (p) => formatCurrency(p.total),
                                   (p) => p.supplierName,
-                                  (p) => balanceTypeTitles[p.paymentSource]!,
+                                  (p) => formatPaymentSource(p),
                                 ],
                                 rowActions:
                                     (purchase) => [
@@ -483,13 +519,13 @@ class _PurchaseRecordState extends State<PurchaseRecord> {
                                           ),
                                           tooltip: "Delete Purchase",
                                           onPressed: () async {
-                                            final confirmed = await showPinDialog(
-                                              context,
-                                            );
+                                            final confirmed =
+                                                await showPinDialog(context);
                                             if (confirmed) {
                                               setState(() {
                                                 isDeletingPurchase = true;
-                                                deletingPurchaseId = purchase.id;
+                                                deletingPurchaseId =
+                                                    purchase.id;
                                               });
 
                                               try {
@@ -519,7 +555,8 @@ class _PurchaseRecordState extends State<PurchaseRecord> {
                                                       content: Text(
                                                         'Error deleting purchase: $e',
                                                       ),
-                                                      backgroundColor: Colors.red,
+                                                      backgroundColor:
+                                                          Colors.red,
                                                     ),
                                                   );
                                                 }
@@ -550,7 +587,9 @@ class _PurchaseRecordState extends State<PurchaseRecord> {
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor:
                                                 index == currentPageIndex
-                                                    ? Theme.of(context).primaryColor
+                                                    ? Theme.of(
+                                                      context,
+                                                    ).primaryColor
                                                     : Colors.grey[300],
                                             foregroundColor:
                                                 index == currentPageIndex
@@ -573,7 +612,8 @@ class _PurchaseRecordState extends State<PurchaseRecord> {
                                         ),
                                         child: TextButton(
                                           onPressed:
-                                              () => loadPurchases(loadMore: true),
+                                              () =>
+                                                  loadPurchases(loadMore: true),
                                           child:
                                               isLoadingMore
                                                   ? const SizedBox(
@@ -584,7 +624,9 @@ class _PurchaseRecordState extends State<PurchaseRecord> {
                                                           strokeWidth: 2,
                                                         ),
                                                   )
-                                                  : const Text("Load Next Page"),
+                                                  : const Text(
+                                                    "Load Next Page",
+                                                  ),
                                         ),
                                       ),
                                   ],
@@ -610,7 +652,10 @@ class _PurchaseRecordState extends State<PurchaseRecord> {
                     children: [
                       CircularProgressIndicator(),
                       SizedBox(height: 16),
-                      Text('Deleting purchase...', style: TextStyle(fontSize: 16)),
+                      Text(
+                        'Deleting purchase...',
+                        style: TextStyle(fontSize: 16),
+                      ),
                     ],
                   ),
                 ),

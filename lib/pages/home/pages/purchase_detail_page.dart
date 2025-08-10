@@ -61,6 +61,39 @@ class _PurchaseDetailPageState extends State<PurchaseDetailPage> {
     }
   }
 
+  String formatPaymentSource(Purchase pur) {
+    List<String> paymentParts = [];
+
+    // Check for cash payment - keep original format
+    if (pur.cashPaid != null && pur.cashPaid! > 0) {
+      paymentParts.add('Cash(${pur.cashPaid!.toInt()})');
+    }
+
+    // Check for UPI payment - keep original format
+    if (pur.upiPaid != null && pur.upiPaid! > 0) {
+      paymentParts.add('UPI(${pur.upiPaid!.toInt()})');
+    }
+
+    // Check for bank payment - keep original format
+    if (pur.bankPaid != null && pur.bankPaid! > 0) {
+      paymentParts.add('Bank(${pur.bankPaid!.toInt()})');
+    }
+
+    // Check for credit payment - keep original format
+
+    // If no specific payment amounts, fall back to original paymentSource
+    if (paymentParts.isEmpty) {
+      final paymentSourceTitle = balanceTypeTitles[pur.paymentSource];
+      if (paymentSourceTitle != null) {
+        return paymentSourceTitle.toString();
+      }
+      return "cash";
+    }
+
+    // Join multiple payment methods with comma and space - keep original format
+    return paymentParts.join(', ');
+  }
+
   Future<void> fetchPhones() async {
     try {
       final phoneSnapshots = await Future.wait(
