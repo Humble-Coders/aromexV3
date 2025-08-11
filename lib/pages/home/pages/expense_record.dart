@@ -38,6 +38,9 @@ class _ExpenseRecordState extends State<ExpenseRecord> {
   DateTime? endDate;
   bool isDateRangeActive = false;
 
+  // View mode toggle
+  bool showDetailedView = true;
+
   List<AT.Transaction> get currentPageTransactions {
     if (pages.isEmpty) return [];
     return pages[currentPageIndex];
@@ -121,7 +124,6 @@ class _ExpenseRecordState extends State<ExpenseRecord> {
               return false;
             }
             if (endDate != null) {
-              // Include all transactions from the end date
               final DateTime endDatePlusOne = endDate!.add(
                 const Duration(days: 1),
               );
@@ -275,6 +277,84 @@ class _ExpenseRecordState extends State<ExpenseRecord> {
     });
   }
 
+  // Format payment method details
+  String _getPaymentDetails(AT.Transaction transaction) {
+    List<String> paymentMethods = [];
+
+    // Check for Cash Payment
+    if (transaction.cashPaid != null && transaction.cashPaid! > 0) {
+      paymentMethods.add('Cash: ${formatCurrency(transaction.cashPaid!)}');
+    }
+
+    // Check for Bank Payment
+    if (transaction.bankPaid != null && transaction.bankPaid! > 0) {
+      paymentMethods.add('Bank: ${formatCurrency(transaction.bankPaid!)}');
+    }
+
+    // Check for Credit Card Payment
+    if (transaction.creditCardPaid != null && transaction.creditCardPaid! > 0) {
+      paymentMethods.add(
+        ' Card: ${formatCurrency(transaction.creditCardPaid!)}',
+      );
+    }
+
+    // Check for UPI Payment
+
+    // If no specific payment methods are found, check if it's an older transaction
+    if (paymentMethods.isEmpty) {
+      // For older transactions without payment breakdown, show total amount
+      if (transaction.amount > 0) {
+        return ' Total: ${formatCurrency(transaction.amount)}';
+      }
+      return 'Payment method not specified';
+    }
+
+    return paymentMethods.join(' ,');
+  }
+
+  // Get payment method icons
+  Widget _getPaymentIcons(AT.Transaction transaction) {
+    List<Widget> icons = [];
+
+    if (transaction.cashPaid != null && transaction.cashPaid! > 0) {
+      icons.add(
+        Tooltip(
+          message: 'Cash: ${formatCurrency(transaction.cashPaid!)}',
+          child: Icon(Icons.money, size: 16, color: Colors.green),
+        ),
+      );
+    }
+    if (transaction.bankPaid != null && transaction.bankPaid! > 0) {
+      icons.add(
+        Tooltip(
+          message: 'Bank: ${formatCurrency(transaction.bankPaid!)}',
+          child: Icon(Icons.account_balance, size: 16, color: Colors.blue),
+        ),
+      );
+    }
+    if (transaction.creditCardPaid != null && transaction.creditCardPaid! > 0) {
+      icons.add(
+        Tooltip(
+          message:
+              'Credit Card: ${formatCurrency(transaction.creditCardPaid!)}',
+          child: Icon(Icons.credit_card, size: 16, color: Colors.orange),
+        ),
+      );
+    }
+    if (transaction.creditCardPaid != null && transaction.creditCardPaid! > 0) {
+      icons.add(
+        Tooltip(
+          message: 'UPI: ${formatCurrency(transaction.creditCardPaid!)}',
+          child: Icon(Icons.phone_android, size: 16, color: Colors.purple),
+        ),
+      );
+    }
+
+    return icons.isEmpty
+        ? Icon(Icons.help_outline, size: 16, color: Colors.grey)
+        : Wrap(spacing: 4, children: icons);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -308,14 +388,21 @@ class _ExpenseRecordState extends State<ExpenseRecord> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Expense Record',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.headlineSmall?.copyWith(
-                        color: colorScheme.onSecondary,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          'Expense Record',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.headlineSmall?.copyWith(
+                            color: colorScheme.onSecondary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const Spacer(),
+
+                        // View toggle button
+                      ],
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -371,25 +458,56 @@ class _ExpenseRecordState extends State<ExpenseRecord> {
                         ? const Center(child: CircularProgressIndicator())
                         : Column(
                           children: [
-                            GenericCustomTable<AT.Transaction>(
-                              entries: currentPageTransactions,
-                              headers: const [
-                                "Date",
-                                "Amount",
-                                "Category",
-                                "Notes",
-                              ],
-                              onTap: (_) {},
-                              valueGetters: [
-                                (transaction) => DateFormat(
-                                  'MM/dd/yyyy',
-                                ).format(transaction.time.toDate()),
-                                (transaction) =>
-                                    formatCurrency(transaction.amount),
-                                (transaction) => transaction.category ?? 'N/A',
-                                (transaction) => transaction.note ?? 'N/A',
-                              ],
-                            ),
+                            if (showDetailedView)
+                              // Detailed view with payment breakdown
+                              GenericCustomTable<AT.Transaction>(
+                                entries: currentPageTransactions,
+                                headers: const [
+                                  "Date",
+                                  "Total Amount",
+                                  "Payment Methods",
+                                  "Category",
+                                  "Notes",
+                                ],
+                                onTap: (_) {},
+                                valueGetters: [
+                                  (transaction) => DateFormat(
+                                    'MM/dd/yyyy',
+                                  ).format(transaction.time.toDate()),
+                                  (transaction) =>
+                                      formatCurrency(transaction.amount),
+                                  (transaction) =>
+                                      _getPaymentDetails(transaction),
+                                  (transaction) =>
+                                      transaction.category ?? 'N/A',
+                                  (transaction) => transaction.note ?? 'N/A',
+                                ],
+                              )
+                            else
+                              // Simple view with payment icons
+                              GenericCustomTable<AT.Transaction>(
+                                entries: currentPageTransactions,
+                                headers: const [
+                                  "Date",
+                                  "Amount",
+                                  "Payment",
+                                  "Category",
+                                  "Notes",
+                                ],
+                                onTap: (_) {},
+                                valueGetters: [
+                                  (transaction) => DateFormat(
+                                    'MM/dd/yyyy',
+                                  ).format(transaction.time.toDate()),
+                                  (transaction) =>
+                                      formatCurrency(transaction.amount),
+                                  (transaction) =>
+                                      '', // Will be replaced by custom widget
+                                  (transaction) =>
+                                      transaction.category ?? 'N/A',
+                                  (transaction) => transaction.note ?? 'N/A',
+                                ],
+                              ),
                             const SizedBox(height: 12),
                             if (pages.isNotEmpty)
                               Row(

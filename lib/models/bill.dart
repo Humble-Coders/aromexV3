@@ -6,11 +6,56 @@ import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+// Model class to hold admin information
+class AdminInfo {
+  final String storeName;
+  final String storeAddress;
+  final String storePhone;
+
+  AdminInfo({
+    required this.storeName,
+    required this.storeAddress,
+    required this.storePhone,
+  });
+
+  factory AdminInfo.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    final address = data['address'] as Map<String, dynamic>;
+
+    // Construct the store address from the address fields
+    String storeAddress = '';
+    if (address['line1'] != null && address['line1'].toString().isNotEmpty) {
+      storeAddress += address['line1'].toString();
+    }
+    if (address['line2'] != null && address['line2'].toString().isNotEmpty) {
+      if (storeAddress.isNotEmpty) storeAddress += ',\n';
+      storeAddress += address['line2'].toString();
+    }
+    if (address['city'] != null && address['city'].toString().isNotEmpty) {
+      if (storeAddress.isNotEmpty) storeAddress += ',\n';
+      storeAddress += address['city'].toString();
+    }
+    if (address['state'] != null && address['state'].toString().isNotEmpty) {
+      storeAddress += ', ${address['state']}';
+    }
+    if (address['postalCode'] != null &&
+        address['postalCode'].toString().isNotEmpty) {
+      storeAddress += ' ${address['postalCode']}';
+    }
+
+    return AdminInfo(
+      storeName:
+          "Aromex Communication", // You can also make this dynamic if needed
+      storeAddress: storeAddress,
+      storePhone: data['phone']?.toString() ?? "",
+    );
+  }
+}
 
 class Bill {
-  final String storeName = "Aromex Communication";
-  final String storeAddress = "13898 64 Ave,\nUnit 101";
-  final String storePhone = "+1 672-699-0009";
+  final AdminInfo adminInfo;
   final DateTime time;
   final BillCustomer customer;
   final String orderNumber;
@@ -19,6 +64,7 @@ class Bill {
   final double? adjustment;
 
   Bill({
+    required this.adminInfo,
     required this.time,
     required this.customer,
     required this.orderNumber,
@@ -26,6 +72,11 @@ class Bill {
     this.adjustment,
     this.note,
   });
+
+  // Getter methods for backward compatibility
+  String get storeName => adminInfo.storeName;
+  String get storeAddress => adminInfo.storeAddress;
+  String get storePhone => adminInfo.storePhone;
 
   double get subtotal {
     return items.fold(0.0, (sum, item) => sum + item.totalPriceValue);
@@ -48,11 +99,65 @@ class Bill {
   }
 }
 
+// Service class to handle admin data fetching
+class AdminService {
+  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  static Future<AdminInfo> getAdminInfo() async {
+    try {
+      final adminDoc =
+          await _firestore.collection('AdminInfo').doc('admin').get();
+
+      if (adminDoc.exists) {
+        return AdminInfo.fromFirestore(adminDoc);
+      } else {
+        // Fallback to default values if admin document doesn't exist
+        return AdminInfo(
+          storeName: "Aromex Communication",
+          storeAddress: "13898 64 Ave,\nUnit 101",
+          storePhone: "+1 672-699-0009",
+        );
+      }
+    } catch (e) {
+      print('Error fetching admin info: $e');
+      // Return default values in case of error
+      return AdminInfo(
+        storeName: "Aromex Communication",
+        storeAddress: "13898 64 Ave,\nUnit 101",
+        storePhone: "+1 672-699-0009",
+      );
+    }
+  }
+}
+
+// Updated function to generate PDF with dynamic admin info
 Future<void> generatePdfInvoice(Bill bill) async {
   final pdfData = await _generatePdfInvoice(bill);
   final fileName = "Invoice-${bill.orderNumber}-${formatDate(bill.time)}.pdf";
   print(fileName);
   await savePdfCrossPlatform(pdfData, fileName);
+}
+
+// Helper function to create a Bill with admin info
+Future<Bill> createBillWithAdminInfo({
+  required DateTime time,
+  required BillCustomer customer,
+  required String orderNumber,
+  required List<BillItem> items,
+  double? adjustment,
+  String? note,
+}) async {
+  final adminInfo = await AdminService.getAdminInfo();
+
+  return Bill(
+    adminInfo: adminInfo,
+    time: time,
+    customer: customer,
+    orderNumber: orderNumber,
+    items: items,
+    adjustment: adjustment,
+    note: note,
+  );
 }
 
 Future<void> savePdfCrossPlatform(Uint8List bytes, String fileName) async {
@@ -70,13 +175,10 @@ Future<void> savePdfCrossPlatform(Uint8List bytes, String fileName) async {
       final location = await getSaveLocation(
         suggestedName: fileName,
         acceptedTypeGroups: [
-          const XTypeGroup(
-            label: 'PDF files',
-            extensions: ['pdf'],
-          ),
+          const XTypeGroup(label: 'PDF files', extensions: ['pdf']),
         ],
       );
-      
+
       if (location != null) {
         // Write the file directly using dart:io
         final file = File(location.path);
@@ -195,7 +297,7 @@ Future<Uint8List> _generatePdfInvoice(Bill bill) async {
               ),
             ),
 
-            /// Product Rows 
+            /// Product Rows
             ...bill.items.asMap().entries.map((entry) {
               final index = entry.key;
               final item = entry.value;

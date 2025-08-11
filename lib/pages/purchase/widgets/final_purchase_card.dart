@@ -28,27 +28,66 @@ class _FinalPurchaseCardState extends State<FinalPurchaseCard> {
   final TextEditingController _paidController = TextEditingController();
   final TextEditingController _creditController = TextEditingController();
   BalanceType? paymentSource;
-
+  final TextEditingController _bankController = TextEditingController();
+  final TextEditingController _upiController = TextEditingController();
+  final TextEditingController _cashController = TextEditingController();
   // Calculate Credit
+  String? bankError;
+  String? upiError;
+  String? cashError;
   void updateCredit() {
     double total = double.tryParse(_totalController.text) ?? 0;
-    double paid = double.tryParse(_paidController.text) ?? 0;
+    double bankAmount = double.tryParse(_bankController.text) ?? 0;
+    double upiAmount = double.tryParse(_upiController.text) ?? 0;
+    double cashAmount = double.tryParse(_cashController.text) ?? 0;
 
-    if (paid > total) {
+    double totalPaid = bankAmount + upiAmount + cashAmount;
+
+    if (totalPaid > total) {
       setState(() {
-        paidError = "Paid amount can't be more than total";
+        // Set error for whichever field was last modified or all of them
+        if (bankAmount > 0)
+          bankError = "Total paid can't be more than total amount";
+        if (upiAmount > 0)
+          upiError = "Total paid can't be more than total amount";
+        if (cashAmount > 0)
+          cashError = "Total paid can't be more than total amount";
         creditError = null;
       });
       return;
     }
 
     setState(() {
-      paidError = null;
-      double credit = total - paid;
+      // Clear all payment errors
+      bankError = null;
+      upiError = null;
+      cashError = null;
+
+      double credit = total - totalPaid;
       _creditController.text = credit.toStringAsFixed(2);
       creditError = null;
     });
   }
+
+  // void updateCredit() {
+  //   double total = double.tryParse(_totalController.text) ?? 0;
+  //   double paid = double.tryParse(_paidController.text) ?? 0;
+
+  //   if (paid > total) {
+  //     setState(() {
+  //       paidError = "Paid amount can't be more than total";
+  //       creditError = null;
+  //     });
+  //     return;
+  //   }
+
+  //   setState(() {
+  //     paidError = null;
+  //     double credit = total - paid;
+  //     _creditController.text = credit.toStringAsFixed(2);
+  //     creditError = null;
+  //   });
+  // }
 
   // Calculate Total
   void updateTotal() {
@@ -161,55 +200,7 @@ class _FinalPurchaseCardState extends State<FinalPurchaseCard> {
                 ],
               ),
               const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Payment Sources",
-                          style: textTheme.titleLarge?.copyWith(
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        DropdownButtonFormField<BalanceType>(
-                          items: [
-                            DropdownMenuItem(
-                              value: BalanceType.cash,
-                              child: Text(balanceTypeTitles[BalanceType.cash]!),
-                            ),
-                            DropdownMenuItem(
-                              value: BalanceType.creditCard,
-                              child: Text(
-                                balanceTypeTitles[BalanceType.creditCard]!,
-                              ),
-                            ),
-                            DropdownMenuItem(
-                              value: BalanceType.bank,
-                              child: Text(balanceTypeTitles[BalanceType.bank]!),
-                            ),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              paymentSource = value;
-                            });
-                          },
-                          decoration: InputDecoration(
-                            hintText: "Select Payment Source",
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  const Expanded(child: SizedBox()),
-                  const SizedBox(width: 16),
-                  const Expanded(child: SizedBox()),
-                ],
-              ),
-              const SizedBox(height: 24),
+
               Divider(),
               const SizedBox(height: 24),
               Row(
@@ -224,27 +215,107 @@ class _FinalPurchaseCardState extends State<FinalPurchaseCard> {
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: CustomTextField(
-                      title: "Paid",
-                      textController: _paidController,
-                      description: "Total amount paid",
-                      error: paidError,
-                      onChanged: (value) {
-                        if (value.isEmpty) {
-                          setState(() {
-                            paidError = "Paid cannot be empty";
-                          });
-                        } else if (double.tryParse(value) == null) {
-                          setState(() {
-                            paidError = "Paid must be a number";
-                          });
-                        } else {
-                          setState(() {
-                            paidError = null;
-                          });
-                        }
-                        updateCredit();
-                      },
+                    child: Row(
+                      children: [
+                        // Bank Field
+                        Expanded(
+                          child: Row(
+                            children: [
+                              // Bank Field
+                              Expanded(
+                                child: CustomTextField(
+                                  title: "Bank",
+                                  textController: _bankController,
+                                  description: "Bank payment",
+                                  error: bankError,
+
+                                  onChanged: (value) {
+                                    if (value.isNotEmpty &&
+                                        double.tryParse(value) == null) {
+                                      setState(() {
+                                        bankError =
+                                            "Bank must be a valid number";
+                                      });
+                                    } else if (value.isNotEmpty &&
+                                        double.parse(value) < 0) {
+                                      setState(() {
+                                        bankError =
+                                            "Bank amount cannot be negative";
+                                      });
+                                    } else {
+                                      setState(() {
+                                        bankError = null;
+                                      });
+                                    }
+                                    updateCredit();
+                                  },
+                                ),
+                              ),
+                              SizedBox(width: 8), // Spacing between fields
+                              // UPI Field
+                              Expanded(
+                                child: CustomTextField(
+                                  title: "Card",
+                                  textController: _upiController,
+                                  description: "Credir Card Pay",
+                                  error: upiError,
+
+                                  onChanged: (value) {
+                                    if (value.isNotEmpty &&
+                                        double.tryParse(value) == null) {
+                                      setState(() {
+                                        upiError =
+                                            "Number must be a valid number";
+                                      });
+                                    } else if (value.isNotEmpty &&
+                                        double.parse(value) < 0) {
+                                      setState(() {
+                                        upiError =
+                                            "Card amount cannot be negative";
+                                      });
+                                    } else {
+                                      setState(() {
+                                        upiError = null;
+                                      });
+                                    }
+                                    updateCredit();
+                                  },
+                                ),
+                              ),
+                              SizedBox(width: 8), // Spacing between fields
+                              // Cash Field
+                              Expanded(
+                                child: CustomTextField(
+                                  title: "Cash",
+                                  textController: _cashController,
+                                  description: "Cash payment",
+                                  error: cashError,
+
+                                  onChanged: (value) {
+                                    if (value.isNotEmpty &&
+                                        double.tryParse(value) == null) {
+                                      setState(() {
+                                        cashError =
+                                            "Cash must be a valid number";
+                                      });
+                                    } else if (value.isNotEmpty &&
+                                        double.parse(value) < 0) {
+                                      setState(() {
+                                        cashError = null;
+                                      });
+                                    } else {
+                                      setState(() {
+                                        cashError = null;
+                                      });
+                                    }
+                                    updateCredit();
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -302,9 +373,12 @@ class _FinalPurchaseCardState extends State<FinalPurchaseCard> {
                                 supplierRef: widget.order.scref!,
                                 supplierName: widget.order.scName,
                                 amount: widget.order.amount,
+                                bankPaid: double.parse(_bankController.text),
+                                upiPaid: double.parse(_upiController.text),
+                                cashPaid: double.parse(_cashController.text),
                                 gst: double.parse(_gstController.text),
                                 pst: double.parse(_pstController.text),
-                                paymentSource: paymentSource!,
+                                paymentSource: paymentSource,
                                 date: widget.order.date!,
                                 total:
                                     double.tryParse(_totalController.text) ??
@@ -378,10 +452,20 @@ class _FinalPurchaseCardState extends State<FinalPurchaseCard> {
         creditError == null &&
         _amountController.text.trim().isNotEmpty &&
         _totalController.text.trim().isNotEmpty &&
-        paymentSource != null &&
         _gstController.text.trim().isNotEmpty &&
         _pstController.text.trim().isNotEmpty &&
-        _paidController.text.trim().isNotEmpty &&
+        //_paidController.text.trim().isNotEmpty &&
+        _bankController.text.trim().isNotEmpty &&
+        _upiController.text.trim().isNotEmpty &&
+        _cashController.text.trim().isNotEmpty &&
         _creditController.text.trim().isNotEmpty;
+  }
+
+  void dispose() {
+    _bankController.dispose();
+    _upiController.dispose();
+    _cashController.dispose();
+    // ... other disposals
+    super.dispose();
   }
 }

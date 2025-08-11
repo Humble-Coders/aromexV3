@@ -68,11 +68,17 @@ class Balance {
     DocumentReference? saleRef,
     String? category,
     String? expenseNote,
+    // Add payment breakdown parameters
+    double? cashPaid,
+    double? bankPaid,
+    double? creditCardPaid,
   }) async {
     assert(
       type == null || type != BalanceType.expenseRecord || category != null,
     );
+
     Timestamp transactionTime = Timestamp.now();
+
     await Future.wait([
       _createTransaction(
         amount,
@@ -82,6 +88,9 @@ class Balance {
         saleRef,
         category,
         expenseNote,
+        cashPaid: cashPaid,
+        bankPaid: bankPaid,
+        creditCardPaid: creditCardPaid,
       ),
       _updateAmountAndTime(this.amount + amount, transactionTime),
     ]);
@@ -93,6 +102,7 @@ class Balance {
     DocumentReference? purchaseRef,
     DocumentReference? saleRef,
     String? category,
+
     String? expenseNote,
   }) async {
     assert(
@@ -209,31 +219,37 @@ class Balance {
 
   Future<void> _createTransaction(
     double amount,
-    Timestamp time,
+    Timestamp transactionTime,
     AT.TransactionType transactionType,
     DocumentReference? purchaseRef,
     DocumentReference? saleRef,
     String? category,
-    String? expenseNote,
-  ) async {
-    final transaction = AT.Transaction(
+    String? expenseNote, {
+    double? cashPaid,
+    double? bankPaid,
+    double? creditCardPaid,
+  }) async {
+    // Create the transaction object
+    AT.Transaction transaction = AT.Transaction(
       amount: amount,
-      time: time,
+      time: transactionTime,
       type: transactionType,
       purchaseRef: purchaseRef,
       saleRef: saleRef,
       category: category,
       note: expenseNote,
+      cashPaid: cashPaid,
+      bankPaid: bankPaid,
+      creditCardPaid: creditCardPaid,
     );
-    final docRef =
-        FirebaseFirestore.instance
-            .collection(Balance.collectionName)
-            .doc(balanceTypeTitles[type])
-            .collection(AT.Transaction.collectionName)
-            .doc();
 
-    await docRef.set(transaction.toJson());
-    _addTransaction(transaction);
+    // Add the transaction to the balance-specific subcollection
+    // This was the issue - you need to add to the balance's subcollection, not the root collection
+    await FirebaseFirestore.instance
+        .collection(Balance.collectionName) // 'Balances'
+        .doc(balanceTypeTitles[type]) // e.g., 'Expense Record'
+        .collection(AT.Transaction.collectionName) // 'Transactions'
+        .add(transaction.toJson());
   }
 
   Future<List<AT.Transaction>> getTransactions({

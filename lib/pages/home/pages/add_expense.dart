@@ -22,12 +22,22 @@ class _AddExpenseState extends State<AddExpense> {
   final TextEditingController dateController = TextEditingController();
   final TextEditingController notesController = TextEditingController();
 
+  // Payment method controllers
+  final TextEditingController _bankController = TextEditingController();
+  final TextEditingController _creditCardController = TextEditingController();
+  final TextEditingController _cashController = TextEditingController();
+
   List<String>? categories;
 
   String? amountError;
   String? categoryError;
   String? dateError;
   String? notesError;
+
+  // Payment method errors
+  String? bankError;
+  String? creditCardError;
+  String? cashError;
 
   @override
   void initState() {
@@ -45,6 +55,12 @@ class _AddExpenseState extends State<AddExpense> {
     amountController.dispose();
     dateController.dispose();
     notesController.dispose();
+
+    // Dispose payment controllers
+    _bankController.dispose();
+    _creditCardController.dispose();
+    _cashController.dispose();
+
     super.dispose();
   }
 
@@ -69,6 +85,34 @@ class _AddExpenseState extends State<AddExpense> {
           });
         }
       }
+    }
+  }
+
+  // Update total amount based on payment fields
+  void updateTotalAmount() {
+    double total = 0.0;
+
+    if (_bankController.text.isNotEmpty) {
+      total += double.tryParse(_bankController.text) ?? 0.0;
+    }
+    if (_creditCardController.text.isNotEmpty) {
+      total += double.tryParse(_creditCardController.text) ?? 0.0;
+    }
+    if (_cashController.text.isNotEmpty) {
+      total += double.tryParse(_cashController.text) ?? 0.0;
+    }
+
+    amountController.text = total > 0 ? total.toString() : '';
+
+    // Validate amount after update
+    if (total <= 0) {
+      setState(() {
+        amountError = "At least one payment method is required";
+      });
+    } else {
+      setState(() {
+        amountError = null;
+      });
     }
   }
 
@@ -204,24 +248,27 @@ class _AddExpenseState extends State<AddExpense> {
   bool validate() {
     bool isValid = true;
 
-    // Validate amount
-    if (amountController.text.isEmpty) {
+    // Validate that at least one payment method has a value
+    double totalPayments = 0.0;
+    if (_bankController.text.isNotEmpty) {
+      totalPayments += double.tryParse(_bankController.text) ?? 0.0;
+    }
+    if (_creditCardController.text.isNotEmpty) {
+      totalPayments += double.tryParse(_creditCardController.text) ?? 0.0;
+    }
+    if (_cashController.text.isNotEmpty) {
+      totalPayments += double.tryParse(_cashController.text) ?? 0.0;
+    }
+
+    if (totalPayments <= 0) {
       setState(() {
-        amountError = "Amount is required";
+        amountError = "At least one payment method is required";
       });
       isValid = false;
     } else {
-      try {
-        double.parse(amountController.text);
-        setState(() {
-          amountError = null;
-        });
-      } catch (e) {
-        setState(() {
-          amountError = "Invalid amount";
-        });
-        isValid = false;
-      }
+      setState(() {
+        amountError = null;
+      });
     }
 
     // Validate category
@@ -298,28 +345,115 @@ class _AddExpenseState extends State<AddExpense> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Payment Methods Row
+                    Row(
+                      children: [
+                        // Bank Field
+                        Expanded(
+                          child: CustomTextField(
+                            title: "Bank",
+                            textController: _bankController,
+                            description: "Bank payment",
+                            error: bankError,
+                            isMandatory: false,
+                            onChanged: (value) {
+                              if (value.isNotEmpty &&
+                                  double.tryParse(value) == null) {
+                                setState(() {
+                                  bankError = "Bank must be a valid number";
+                                });
+                              } else if (value.isNotEmpty &&
+                                  double.parse(value) < 0) {
+                                setState(() {
+                                  bankError = "Bank amount cannot be negative";
+                                });
+                              } else {
+                                setState(() {
+                                  bankError = null;
+                                });
+                              }
+                              updateTotalAmount();
+                            },
+                          ),
+                        ),
+                        SizedBox(width: 12),
+
+                        // Credit Card Field
+                        Expanded(
+                          child: CustomTextField(
+                            title: "Credit Card",
+                            textController: _creditCardController,
+                            description: "Credit Card Pay",
+                            error: creditCardError,
+                            isMandatory: false,
+                            onChanged: (value) {
+                              if (value.isNotEmpty &&
+                                  double.tryParse(value) == null) {
+                                setState(() {
+                                  creditCardError =
+                                      "Amount must be a valid number";
+                                });
+                              } else if (value.isNotEmpty &&
+                                  double.parse(value) < 0) {
+                                setState(() {
+                                  creditCardError =
+                                      "Card amount cannot be negative";
+                                });
+                              } else {
+                                setState(() {
+                                  creditCardError = null;
+                                });
+                              }
+                              updateTotalAmount();
+                            },
+                          ),
+                        ),
+                        SizedBox(width: 12),
+
+                        // Cash Field
+                        Expanded(
+                          child: CustomTextField(
+                            title: "Cash",
+                            textController: _cashController,
+                            description: "Cash payment",
+                            error: cashError,
+                            isMandatory: false,
+                            onChanged: (value) {
+                              if (value.isNotEmpty &&
+                                  double.tryParse(value) == null) {
+                                setState(() {
+                                  cashError = "Cash must be a valid number";
+                                });
+                              } else if (value.isNotEmpty &&
+                                  double.parse(value) < 0) {
+                                setState(() {
+                                  cashError = "Cash amount cannot be negative";
+                                });
+                              } else {
+                                setState(() {
+                                  cashError = null;
+                                });
+                              }
+                              updateTotalAmount();
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Total Amount, Category, Date Row
                     Row(
                       children: [
                         Expanded(
                           child: CustomTextField(
-                            title: "Amount",
+                            title: "Total Amount",
                             error: amountError,
                             textController: amountController,
-                            description: "Enter expense amount",
-                            onChanged: (val) {
-                              setState(() {
-                                if (val.isEmpty) {
-                                  amountError = "Amount is required";
-                                } else {
-                                  try {
-                                    double.parse(val);
-                                    amountError = null;
-                                  } catch (e) {
-                                    amountError = "Invalid amount";
-                                  }
-                                }
-                              });
-                            },
+                            description:
+                                "Total calculated from payment methods",
+                            isReadOnly: true,
+                            onChanged: (val) {},
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -361,13 +495,8 @@ class _AddExpenseState extends State<AddExpense> {
                                       defaultConstructor: () => "",
                                     ),
                                   ),
-
-                                  // Add clear button
                                 ],
                               ),
-                              // Show selected category
-
-                              // Show error
                               if (categoryError != null)
                                 Container(
                                   margin: EdgeInsets.only(top: 4),
@@ -517,11 +646,31 @@ class _AddExpenseState extends State<AddExpense> {
                               String categoryToUse =
                                   selectedCategory ?? categoryController.text;
 
+                              // You can also store individual payment amounts if needed
+                              // For now, using the total amount
                               await balance.addAmount(
                                 double.parse(amountController.text),
                                 category: categoryToUse,
-                                expenseNote: notesController.text,
+                                expenseNote:
+                                    notesController.text.isNotEmpty
+                                        ? notesController.text
+                                        : null,
                                 transactionType: TransactionType.self,
+                                // If you need to store payment breakdown, add these parameters:
+                                cashPaid:
+                                    _cashController.text.isNotEmpty
+                                        ? double.parse(_cashController.text)
+                                        : null,
+                                bankPaid:
+                                    _bankController.text.isNotEmpty
+                                        ? double.parse(_bankController.text)
+                                        : null,
+                                creditCardPaid:
+                                    _creditCardController.text.isNotEmpty
+                                        ? double.parse(
+                                          _creditCardController.text,
+                                        )
+                                        : null,
                               );
 
                               Navigator.pop(context); // Close loading dialog
