@@ -1,128 +1,97 @@
 import 'package:aromex/models/balance_generic.dart';
 import 'package:aromex/models/sale.dart';
+import 'package:aromex/models/transaction.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 Future<void> deleteSaleWithReversal(Sale sale) async {
+  if (sale.id == null || sale.id!.isEmpty) {
+    throw Exception('Sale ID cannot be null or empty');
+  }
+
   final saleRef = FirebaseFirestore.instance.collection('Sales').doc(sale.id);
 
   try {
     // 1. Reverse customer balance
     final customerRef = sale.customerRef;
     final customerDoc = await customerRef.get();
-
     if (!customerDoc.exists) {
-      throw Exception('Customer document not found: ${customerRef.id}');
+      throw Exception('Customer not found: ${customerRef.id}');
     }
 
-    final customerData = customerDoc.data();
+    final customerData = customerDoc.data() as Map<String, dynamic>?;
     if (customerData == null) {
-      throw Exception('Customer data is null for: ${customerRef.id}');
+      throw Exception('Customer data is null');
     }
 
-    final customerMap = customerData as Map<String, dynamic>;
-    final currentBalance = (customerMap['balance'] ?? 0.0) as num;
-    await customerRef.update({'balance': currentBalance - sale.credit});
+    final currentBalance = (customerData['balance'] ?? 0.0) as num;
+    final creditAmount = sale.credit;
 
-    // 2. Reverse middleman balance if applicable and document exists
-    if (sale.middlemanRef != null) {
-      final middlemanDoc = await sale.middlemanRef!.get();
+    await customerRef.update({'balance': currentBalance - creditAmount});
 
-      if (middlemanDoc.exists) {
-        final middlemanData = middlemanDoc.data();
-        if (middlemanData != null) {
-          final middlemanMap = middlemanData as Map<String, dynamic>;
-          final middlemanBalance = (middlemanMap['balance'] ?? 0.0) as num;
-          await sale.middlemanRef!.update({
-            'balance': middlemanBalance - sale.mCredit,
-          });
-        } else {
-          print('Middleman data is null for: ${sale.middlemanRef!.id}');
-        }
-      } else {
-        print('Middleman document not found: ${sale.middlemanRef!.id}');
+    // 2. Reverse each payment method's balance
+    Future<void> reversePayment(BalanceType type, double paid) async {
+      if (paid > 0) {
+        final balance = await Balance.fromType(type);
+        await balance.removeAmount(
+          paid,
+          transactionType: TransactionType.sale,
+          saleRef: saleRef,
+        );
       }
     }
 
-    // 3. Reverse payment source balance
-    final paymentSourceName = balanceTypeTitles[sale.paymentSource];
-    if (paymentSourceName == null) {
-      throw Exception('Invalid payment source: ${sale.paymentSource}');
-    }
+    await Future.wait([
+      reversePayment(BalanceType.cash, sale.cashPaid ?? 0),
+      reversePayment(BalanceType.bank, sale.bankPaid ?? 0),
+      reversePayment(BalanceType.upi, sale.upiPaid ?? 0),
+    ]);
 
-    final balanceDoc =
-        await FirebaseFirestore.instance
-            .collection('Balances')
-            .doc(paymentSourceName)
-            .get();
-
-    if (!balanceDoc.exists) {
-      throw Exception(
-        'Balance document not found: ${sale.paymentSource?.name}',
+    // 3. Reverse Total Owe if credit was used
+    if (creditAmount != 0) {
+      final totalOwe = await Balance.fromType(BalanceType.totalOwe);
+      await totalOwe.removeAmount(
+        creditAmount,
+        transactionType: TransactionType.sale,
+        saleRef: saleRef,
       );
     }
 
-    final balanceData = balanceDoc.data();
-    if (balanceData == null) {
-      throw Exception('Balance data is null for: $paymentSourceName');
-    }
-
-    final balanceAmount = (balanceData['amount'] ?? 0.0) as num;
-    await balanceDoc.reference.update({
-      'amount': balanceAmount + (sale.amount - sale.credit),
-    });
-
-    // 4. Reverse totalOwe if credit was used
-    if (sale.credit != 0) {
-      final oweDoc =
-          await FirebaseFirestore.instance
-              .collection('Balances')
-              .doc('Total Owe')
-              .get();
-
-      if (!oweDoc.exists) {
-        throw Exception('TotalOwe document not found');
-      }
-
-      final oweData = oweDoc.data();
-      if (oweData == null) {
-        throw Exception('TotalOwe data is null');
-      }
-
-      final oweAmount = (oweData['amount'] ?? 0.0) as num;
-      await oweDoc.reference.update({'amount': oweAmount - sale.credit});
-    }
-    // 5. Remove saleRef from phones
+    // 4. Remove saleRef from phones and delete them
     for (final phoneRef in sale.phones) {
       final phoneDoc = await phoneRef.get();
       if (phoneDoc.exists) {
         await phoneRef.update({'saleRef': null});
-      } else {
-        print('Phone doc not found: ${phoneRef.path}');
+        await phoneRef.delete();
       }
     }
 
-    // 6. Remove saleRef from customer's transactionHistory
+    // 5. Remove saleRef from customer transaction history
     await customerRef.update({
       'transactionHistory': FieldValue.arrayRemove([saleRef]),
     });
 
-    // 7. Update totals
+    // 6. Update totals
     final totalsDoc =
         await FirebaseFirestore.instance.collection('Data').doc('Totals').get();
 
-    if (totalsDoc.exists && totalsDoc.data() != null) {
-      final totalsData = totalsDoc.data()!;
-      final totalSales = (totalsData['totalSales'] ?? 0).toInt() - 1;
-      final totalSaleAmount =
-          (totalsData['totalSaleAmount'] ?? 0.0).toDouble() - sale.amount;
+    if (totalsDoc.exists) {
+      final totalsData = totalsDoc.data();
+      if (totalsData != null) {
+        final newTotalSales = ((totalsData['totalSales'] ?? 0) - 1).clamp(
+          0,
+          double.infinity,
+        );
+        final newTotalAmount = ((totalsData['totalAmount'] ?? 0.0) - sale.total)
+            .clamp(0.0, double.infinity);
 
-      await FirebaseFirestore.instance.collection('Data').doc('Totals').update({
-        'totalSales': totalSales,
-        'totalSaleAmount': totalSaleAmount,
-      });
+        await totalsDoc.reference.update({
+          'totalSales': newTotalSales,
+          'totalAmount': newTotalAmount,
+        });
+      }
     }
 
-    // 8. Delete the sale document
+    // 7. Delete the sale document
     await saleRef.delete();
   } catch (e) {
     print('Error deleting sale: $e');

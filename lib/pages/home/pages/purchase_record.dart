@@ -70,30 +70,23 @@ class _PurchaseRecordState extends State<PurchaseRecord> {
     List<String> paymentParts = [];
 
     // Check for cash payment - keep original format
-    if (pur.cashPaid != null && pur.cashPaid! > 0) {
+    if (pur.cashPaid != null && pur.cashPaid! >= 0) {
       paymentParts.add('Cash(${pur.cashPaid!.toInt()})');
     }
 
     // Check for UPI payment - keep original format
-    if (pur.upiPaid != null && pur.upiPaid! > 0) {
-      paymentParts.add('UPI(${pur.upiPaid!.toInt()})');
+    if (pur.upiPaid != null && pur.upiPaid! >= 0) {
+      paymentParts.add('Card(${pur.upiPaid!.toInt()})');
     }
 
     // Check for bank payment - keep original format
-    if (pur.bankPaid != null && pur.bankPaid! > 0) {
+    if (pur.bankPaid != null && pur.bankPaid! >= 0) {
       paymentParts.add('Bank(${pur.bankPaid!.toInt()})');
     }
 
     // Check for credit payment - keep original format
 
     // If no specific payment amounts, fall back to original paymentSource
-    if (paymentParts.isEmpty) {
-      final paymentSourceTitle = balanceTypeTitles[pur.paymentSource];
-      if (paymentSourceTitle != null) {
-        return paymentSourceTitle.toString();
-      }
-      return "cash";
-    }
 
     // Join multiple payment methods with comma and space - keep original format
     return paymentParts.join(', ');
@@ -484,13 +477,15 @@ class _PurchaseRecordState extends State<PurchaseRecord> {
                                 entries: currentPagePurchases,
                                 headers: [
                                   "Date",
-                                  "Order No.",
+                                  "Order",
                                   "Amount",
                                   "Supplier",
                                   "Payment Source",
                                 ],
                                 valueGetters: [
-                                  (p) => p.date.toString(),
+                                  (p) => DateFormat(
+                                    'dd/MM/yy HH:mm',
+                                  ).format(p.date),
                                   (p) => p.orderNumber,
                                   (p) => formatCurrency(p.total),
                                   (p) => p.supplierName,

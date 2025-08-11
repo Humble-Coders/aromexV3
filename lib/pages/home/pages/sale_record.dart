@@ -150,30 +150,23 @@ class _SaleRecordState extends State<SaleRecord> {
     List<String> paymentParts = [];
 
     // Check for cash payment - keep original format
-    if (sale.cashPaid != null && sale.cashPaid! > 0) {
+    if (sale.cashPaid != null && sale.cashPaid! >= 0) {
       paymentParts.add('Cash(${sale.cashPaid!.toInt()})');
     }
 
     // Check for UPI payment - keep original format
-    if (sale.upiPaid != null && sale.upiPaid! > 0) {
-      paymentParts.add('UPI(${sale.upiPaid!.toInt()})');
+    if (sale.upiPaid != null && sale.upiPaid! >= 0) {
+      paymentParts.add('Card(${sale.upiPaid!.toInt()})');
     }
 
     // Check for bank payment - keep original format
-    if (sale.bankPaid != null && sale.bankPaid! > 0) {
+    if (sale.bankPaid != null && sale.bankPaid! >= 0) {
       paymentParts.add('Bank(${sale.bankPaid!.toInt()})');
     }
 
     // Check for credit payment - keep original format
 
     // If no specific payment amounts, fall back to original paymentSource
-    if (paymentParts.isEmpty) {
-      final paymentSourceTitle = balanceTypeTitles[sale.paymentSource];
-      if (paymentSourceTitle != null) {
-        return paymentSourceTitle.toString();
-      }
-      return "cash";
-    }
 
     // Join multiple payment methods with comma and space - keep original format
     return paymentParts.join(', ');
@@ -492,7 +485,9 @@ class _SaleRecordState extends State<SaleRecord> {
                                 ],
                                 // Update the valueGetters in your GenericCustomTable
                                 valueGetters: [
-                                  (p) => p.date.toString(),
+                                  (p) => DateFormat(
+                                    'dd/MM/yy HH:mm',
+                                  ).format(p.date),
                                   (p) => p.orderNumber,
                                   (p) => formatCurrency(p.total),
                                   (p) => p.customerName ?? 'N/A',

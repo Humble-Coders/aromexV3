@@ -1,9 +1,9 @@
 import 'package:aromex/models/balance_generic.dart';
 import 'package:aromex/models/purchase.dart';
+import 'package:aromex/models/transaction.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 Future<void> deletePurchaseWithReversal(Purchase purchase) async {
-  // Validate input
   if (purchase.id == null || purchase.id!.isEmpty) {
     throw Exception('Purchase ID cannot be null or empty');
   }
@@ -15,147 +15,85 @@ Future<void> deletePurchaseWithReversal(Purchase purchase) async {
   try {
     // 1. Reverse supplier balance
     final supplierRef = purchase.supplierRef;
-
     final supplierDoc = await supplierRef.get();
     if (!supplierDoc.exists) {
       throw Exception('Supplier not found: ${supplierRef.id}');
     }
 
-    final supplierData = supplierDoc.data();
+    final supplierData = supplierDoc.data() as Map<String, dynamic>?;
     if (supplierData == null) {
       throw Exception('Supplier data is null');
     }
 
-    final supplierDataMap = supplierData as Map<String, dynamic>;
-    final currentBalance = (supplierDataMap['balance'] ?? 0.0) as num;
+    final currentBalance = (supplierData['balance'] ?? 0.0) as num;
     final creditAmount = purchase.credit;
 
     await supplierRef.update({'balance': currentBalance - creditAmount});
 
-    final paymentSourceName = balanceTypeTitles[purchase.paymentSource];
-    if (paymentSourceName == null || paymentSourceName.isEmpty) {
-      throw Exception('Invalid payment source: ${purchase.paymentSource}');
+    // 2. Reverse each payment method's balance
+    Future<void> reversePayment(BalanceType type, double paid) async {
+      if (paid > 0) {
+        final balance = await Balance.fromType(type);
+        await balance.addAmount(
+          paid,
+          transactionType: TransactionType.purchase,
+          purchaseRef: purchaseRef,
+        );
+      }
     }
 
-    final balanceDoc =
-        await FirebaseFirestore.instance
-            .collection('Balances')
-            .doc(paymentSourceName)
-            .get();
+    await Future.wait([
+      reversePayment(BalanceType.cash, purchase.cashPaid ?? 0),
+      reversePayment(BalanceType.bank, purchase.bankPaid ?? 0),
+      reversePayment(BalanceType.upi, purchase.upiPaid ?? 0),
+    ]);
 
-    if (!balanceDoc.exists) {
-      throw Exception('Balance document not found: $paymentSourceName');
+    // 3. Reverse Total Due if credit was used
+    if (creditAmount != 0) {
+      final totalDue = await Balance.fromType(BalanceType.totalDue);
+      await totalDue.removeAmount(
+        creditAmount,
+        transactionType: TransactionType.purchase,
+        purchaseRef: purchaseRef,
+      );
     }
 
-    final balanceData = balanceDoc.data();
-    if (balanceData == null) {
-      throw Exception('Balance data is null for: $paymentSourceName');
+    // 4. Remove purchaseRef from phones and delete them
+    for (final phoneRef in purchase.phones) {
+      final phoneDoc = await phoneRef.get();
+      if (phoneDoc.exists) {
+        await phoneRef.update({'purchaseRef': null});
+        await phoneRef.delete();
+      }
     }
 
-    final balanceDataMap = balanceData;
-    final balanceAmount = (balanceDataMap['amount'] ?? 0.0) as num;
-    final purchaseAmount = purchase.amount;
-
-    await balanceDoc.reference.update({
-      'amount': balanceAmount + (purchaseAmount - creditAmount),
+    // 5. Remove purchaseRef from supplier's transaction history
+    await supplierRef.update({
+      'transactionHistory': FieldValue.arrayRemove([purchaseRef]),
     });
 
-    // 3. Reverse totalDue if credit was used
-    if (creditAmount != 0) {
-      final dueDoc =
-          await FirebaseFirestore.instance
-              .collection('Balances')
-              .doc('Total Due')
-              .get();
-
-      if (!dueDoc.exists) {
-        throw Exception('TotalDue document not found');
-      }
-
-      final dueData = dueDoc.data();
-      if (dueData == null) {
-        throw Exception('TotalDue data is null');
-      }
-
-      final dueDataMap = dueData;
-      final dueAmount = (dueDataMap['amount'] ?? 0.0) as num;
-
-      await dueDoc.reference.update({'amount': dueAmount - creditAmount});
-    }
-
-    // 4. Remove purchaseRef from phones and delete the phones
-    final phones = purchase.phones;
-    if (phones.isNotEmpty) {
-      for (final phoneRef in phones) {
-        try {
-          // Check if phone document exists before updating
-          final phoneDoc = await phoneRef.get();
-          if (phoneDoc.exists) {
-            await phoneRef.update({'purchaseRef': null});
-            await phoneRef.delete();
-          }
-        } catch (e) {
-          print('Warning: Failed to delete phone ${phoneRef.id}: $e');
-          // Continue with other phones instead of failing entirely
-        }
-      }
-    }
-
-    // 5. Remove purchaseRef from supplier's transactionHistory
-    try {
-      await supplierRef.update({
-        'transactionHistory': FieldValue.arrayRemove([purchaseRef]),
-      });
-    } catch (e) {
-      print('Warning: Failed to update supplier transaction history: $e');
-      // Don't fail the entire operation for this
-    }
-
     // 6. Update totals
-    try {
-      final totalsDoc =
-          await FirebaseFirestore.instance
-              .collection('Data')
-              .doc('Totals')
-              .get();
+    final totalsDoc =
+        await FirebaseFirestore.instance.collection('Data').doc('Totals').get();
 
-      if (totalsDoc.exists) {
-        final totalsData = totalsDoc.data();
-        if (totalsData != null) {
-          final totalsDataMap = totalsData;
-          final currentTotalPurchases =
-              (totalsDataMap['totalPurchases'] ?? 0).toInt();
-          final currentTotalAmount =
-              (totalsDataMap['totalAmount'] ?? 0.0).toDouble();
+    if (totalsDoc.exists) {
+      final totalsData = totalsDoc.data();
+      if (totalsData != null) {
+        final newTotalPurchases = ((totalsData['totalPurchases'] ?? 0) - 1)
+            .clamp(0, double.infinity);
+        final newTotalAmount = ((totalsData['totalAmount'] ?? 0.0) -
+                purchase.amount)
+            .clamp(0.0, double.infinity);
 
-          final newTotalPurchases =
-              (currentTotalPurchases - 1).clamp(0, double.infinity).toInt();
-          final newTotalAmount = (currentTotalAmount - purchaseAmount).clamp(
-            0.0,
-            double.infinity,
-          );
-
-          await FirebaseFirestore.instance
-              .collection('Data')
-              .doc('Totals')
-              .update({
-                'totalPurchases': newTotalPurchases,
-                'totalAmount': newTotalAmount,
-              });
-        }
+        await totalsDoc.reference.update({
+          'totalPurchases': newTotalPurchases,
+          'totalAmount': newTotalAmount,
+        });
       }
-    } catch (e) {
-      print('Warning: Failed to update totals: $e');
-      // Don't fail the entire operation for this
     }
 
-    // 7. Delete the purchase document (do this last)
-    final purchaseDoc = await purchaseRef.get();
-    if (purchaseDoc.exists) {
-      await purchaseRef.delete();
-    } else {
-      print('Warning: Purchase document ${purchase.id} does not exist');
-    }
+    // 7. Delete the purchase document
+    await purchaseRef.delete();
   } catch (e) {
     print('Error deleting purchase: $e');
     rethrow;

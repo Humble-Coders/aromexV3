@@ -86,9 +86,14 @@ class SalePageCardState extends State<SalePageCard> {
       fetchCustomers();
     }
 
-    phones = widget.savedState.phones;
-    phoneRefs = widget.savedState.phoneRefs;
-    allPhones = widget.savedState.allPhones;
+    // FIX: Create copies of the lists to avoid reference issues
+    phones = List.from(widget.savedState.phones);
+    phoneRefs = List.from(widget.savedState.phoneRefs);
+    allPhones =
+        widget.savedState.allPhones != null
+            ? List.from(widget.savedState.allPhones!)
+            : null;
+
     if (allPhones == null) getAllPhones();
 
     setState(() {});
@@ -97,7 +102,6 @@ class SalePageCardState extends State<SalePageCard> {
   @override
   void initState() {
     super.initState();
-
     buildFromSavedState();
   }
 
@@ -154,6 +158,9 @@ class SalePageCardState extends State<SalePageCard> {
         );
       }),
     );
+
+    // FIX: Update saved state with loaded phones
+    widget.savedState.allPhones = List.from(allPhones!);
     setState(() {});
   }
 
@@ -275,7 +282,6 @@ class SalePageCardState extends State<SalePageCard> {
                           },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: colorScheme.secondary,
-
                     padding: EdgeInsets.symmetric(horizontal: 60, vertical: 24),
                     side: BorderSide(color: colorScheme.primary),
                   ),
@@ -298,6 +304,11 @@ class SalePageCardState extends State<SalePageCard> {
                       allPhones!.add(phones[idx]);
                       phones.removeAt(idx);
                       phoneRefs.removeAt(idx);
+
+                      // FIX: Update saved state when removing products
+                      widget.savedState.phones = List.from(phones);
+                      widget.savedState.phoneRefs = List.from(phoneRefs);
+                      widget.savedState.allPhones = List.from(allPhones!);
                     });
                   },
                   onCopy: (idx) {
@@ -395,17 +406,19 @@ class SalePageCardState extends State<SalePageCard> {
               vertical: MediaQuery.of(context).size.height * 0.125,
             ),
             child: ProductDetailDialog(
-              prefillWith:
-                  prefillWith ?? (phones.isNotEmpty ? phones.last : null),
+              // FIX: Only prefill when explicitly copying a product
+              prefillWith: prefillWith,
               onProductAdded: (product) {
                 Navigator.pop(context);
                 setState(() {
                   phones.add(product);
-                  widget.savedState.phones = phones;
                   phoneRefs.add(product.snapshot!.reference);
-                  widget.savedState.phoneRefs = phoneRefs;
                   allPhones!.remove(product);
-                  widget.savedState.allPhones = allPhones;
+
+                  // FIX: Update saved state when adding products
+                  widget.savedState.phones = List.from(phones);
+                  widget.savedState.phoneRefs = List.from(phoneRefs);
+                  widget.savedState.allPhones = List.from(allPhones!);
                 });
               },
               allPhones: allPhones!,
