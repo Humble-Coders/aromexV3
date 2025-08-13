@@ -253,6 +253,7 @@ Future<void> generateBill({
     items: items,
     note: note,
     adjustment: adjustment,
+    billType: BillType.sale, // Specify as sale bill
   );
 
   await generatePdfInvoice(bill);

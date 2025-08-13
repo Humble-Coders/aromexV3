@@ -83,7 +83,10 @@ class PurchasePageCardState extends State<PurchasePageCard> {
       fetchSuppliers();
     }
 
-    phones = widget.savedState.phones;
+    // FIX: Make sure to preserve phones from saved state
+    phones = List.from(
+      widget.savedState.phones,
+    ); // Create a copy to avoid reference issues
 
     setState(() {});
   }
@@ -91,7 +94,6 @@ class PurchasePageCardState extends State<PurchasePageCard> {
   @override
   void initState() {
     super.initState();
-
     buildFromSavedState();
   }
 
@@ -210,7 +212,6 @@ class PurchasePageCardState extends State<PurchasePageCard> {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: colorScheme.secondary,
-
                     padding: EdgeInsets.symmetric(horizontal: 60, vertical: 24),
                     side: BorderSide(color: colorScheme.primary),
                   ),
@@ -231,6 +232,8 @@ class PurchasePageCardState extends State<PurchasePageCard> {
                   onRemove: (idx) {
                     setState(() {
                       phones.removeAt(idx);
+                      // FIX: Update saved state when removing products
+                      widget.savedState.phones = List.from(phones);
                     });
                   },
                   onCopy: (idx) {
@@ -323,12 +326,14 @@ class PurchasePageCardState extends State<PurchasePageCard> {
               vertical: MediaQuery.of(context).size.height * 0.125,
             ),
             child: ProductDetailDialog(
-              prefillWith:
-                  prefillWith ?? (phones.isNotEmpty ? phones.last : null),
+              // FIX: Only prefill when explicitly copying a product
+              prefillWith: prefillWith,
               onProductAdded: (product) {
                 Navigator.pop(context);
                 setState(() {
                   phones.add(product);
+                  // FIX: Update saved state when adding products
+                  widget.savedState.phones = List.from(phones);
                 });
               },
             ),

@@ -8,6 +8,20 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+// Enum to define bill types
+enum BillType { sale, purchase }
+
+extension BillTypeExtension on BillType {
+  String get displayName {
+    switch (this) {
+      case BillType.sale:
+        return 'SALE INVOICE';
+      case BillType.purchase:
+        return 'PURCHASE INVOICE';
+    }
+  }
+}
+
 // Model class to hold admin information
 class AdminInfo {
   final String storeName;
@@ -62,6 +76,7 @@ class Bill {
   List<BillItem> items;
   String? note;
   final double? adjustment;
+  final BillType billType; // Added bill type
 
   Bill({
     required this.adminInfo,
@@ -71,6 +86,7 @@ class Bill {
     required this.items,
     this.adjustment,
     this.note,
+    required this.billType, // Required bill type
   });
 
   // Getter methods for backward compatibility
@@ -138,7 +154,7 @@ Future<void> generatePdfInvoice(Bill bill) async {
   await savePdfCrossPlatform(pdfData, fileName);
 }
 
-// Helper function to create a Bill with admin info
+// Updated helper function to create a Bill with admin info and bill type
 Future<Bill> createBillWithAdminInfo({
   required DateTime time,
   required BillCustomer customer,
@@ -146,6 +162,7 @@ Future<Bill> createBillWithAdminInfo({
   required List<BillItem> items,
   double? adjustment,
   String? note,
+  required BillType billType, // Added required bill type parameter
 }) async {
   final adminInfo = await AdminService.getAdminInfo();
 
@@ -157,6 +174,7 @@ Future<Bill> createBillWithAdminInfo({
     items: items,
     adjustment: adjustment,
     note: note,
+    billType: billType, // Pass bill type
   );
 }
 
@@ -204,6 +222,14 @@ Future<Uint8List> _generatePdfInvoice(Bill bill) async {
     color: PdfColors.blue900,
     fontWeight: pw.FontWeight.bold,
   );
+  final billTypeStyle = pw.TextStyle(
+    fontSize: 14,
+    fontWeight: pw.FontWeight.bold,
+    color:
+        bill.billType == BillType.sale
+            ? PdfColors.green800
+            : PdfColors.orange800,
+  );
 
   pdf.addPage(
     pw.MultiPage(
@@ -224,11 +250,14 @@ Future<Uint8List> _generatePdfInvoice(Bill bill) async {
             pw.Text(bill.storePhone, style: baseTextStyle),
             pw.SizedBox(height: 16),
 
-            /// Invoice Title + Metadata
+            /// Invoice Title + Bill Type + Metadata
             pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
                 pw.Text('Invoice', style: title),
+                pw.SizedBox(height: 8),
+                // Added bill type line
+                pw.Text(bill.billType.displayName, style: billTypeStyle),
                 pw.SizedBox(height: 4),
                 pw.Text(
                   formatDate(bill.time),
@@ -241,7 +270,12 @@ Future<Uint8List> _generatePdfInvoice(Bill bill) async {
                     pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        pw.Text('Invoice for', style: bold),
+                        pw.Text(
+                          bill.billType == BillType.sale
+                              ? 'Invoice for'
+                              : 'Purchase from',
+                          style: bold,
+                        ),
                         pw.Text(bill.customer.name, style: baseTextStyle),
                         pw.Text(bill.customer.address, style: baseTextStyle),
                       ],

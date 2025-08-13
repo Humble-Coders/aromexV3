@@ -1,8 +1,11 @@
 import 'package:aromex/models/balance_generic.dart';
 import 'package:aromex/models/order.dart';
 import 'package:aromex/models/purchase.dart';
+import 'package:aromex/models/supplier.dart'; // Add this import for supplier
 import 'package:aromex/widgets/custom_text_field.dart';
 import 'package:aromex/services/purchase.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'
+    hide Order; // Add this import
 import 'package:flutter/material.dart';
 
 class FinalPurchaseCard extends StatefulWidget {
@@ -35,6 +38,7 @@ class _FinalPurchaseCardState extends State<FinalPurchaseCard> {
   String? bankError;
   String? upiError;
   String? cashError;
+
   void updateCredit() {
     double total = double.tryParse(_totalController.text) ?? 0;
     double bankAmount = double.tryParse(_bankController.text) ?? 0;
@@ -68,26 +72,6 @@ class _FinalPurchaseCardState extends State<FinalPurchaseCard> {
       creditError = null;
     });
   }
-
-  // void updateCredit() {
-  //   double total = double.tryParse(_totalController.text) ?? 0;
-  //   double paid = double.tryParse(_paidController.text) ?? 0;
-
-  //   if (paid > total) {
-  //     setState(() {
-  //       paidError = "Paid amount can't be more than total";
-  //       creditError = null;
-  //     });
-  //     return;
-  //   }
-
-  //   setState(() {
-  //     paidError = null;
-  //     double credit = total - paid;
-  //     _creditController.text = credit.toStringAsFixed(2);
-  //     creditError = null;
-  //   });
-  // }
 
   // Calculate Total
   void updateTotal() {
@@ -378,7 +362,6 @@ class _FinalPurchaseCardState extends State<FinalPurchaseCard> {
                                 cashPaid: double.parse(_cashController.text),
                                 gst: double.parse(_gstController.text),
                                 pst: double.parse(_pstController.text),
-                                paymentSource: paymentSource,
                                 date: widget.order.date!,
                                 total:
                                     double.tryParse(_totalController.text) ??
@@ -412,6 +395,142 @@ class _FinalPurchaseCardState extends State<FinalPurchaseCard> {
                                   );
                                   widget.onSubmit();
                                   Navigator.pop(context);
+
+                                  // Bill generation dialog - same as in FinalSaleCard
+                                  showDialog(
+                                    context: context,
+                                    builder: (_) {
+                                      TextEditingController noteController =
+                                          TextEditingController();
+                                      TextEditingController
+                                      adjustmentController =
+                                          TextEditingController();
+                                      String? adjustmentError;
+                                      return StatefulBuilder(
+                                        builder: (context, setState) {
+                                          return AlertDialog(
+                                            title: Text(
+                                              'Generate Purchase Bill',
+                                              style:
+                                                  Theme.of(
+                                                    context,
+                                                  ).textTheme.titleLarge,
+                                            ),
+                                            content: SizedBox(
+                                              width:
+                                                  MediaQuery.of(
+                                                    context,
+                                                  ).size.width *
+                                                  0.6,
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  CustomTextField(
+                                                    title: "Notes",
+                                                    textController:
+                                                        noteController,
+                                                    description:
+                                                        "This will be visible on the bill",
+                                                    isMandatory: false,
+                                                  ),
+                                                  const SizedBox(height: 16),
+                                                  CustomTextField(
+                                                    title: "Adjustment",
+                                                    error: adjustmentError,
+                                                    textController:
+                                                        adjustmentController,
+                                                    isMandatory: false,
+                                                    onChanged: (p0) {
+                                                      setState(() {
+                                                        if (p0.trim().isEmpty) {
+                                                          adjustmentError =
+                                                              null;
+                                                          return;
+                                                        }
+
+                                                        try {
+                                                          double.parse(p0);
+                                                          adjustmentError =
+                                                              null;
+                                                        } catch (_) {
+                                                          adjustmentError =
+                                                              "Invalid number";
+                                                        }
+                                                      });
+                                                    },
+                                                    description:
+                                                        "This will be subtracted from the total amount",
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () {
+                                                  Navigator.of(context).pop();
+                                                },
+                                                child: const Text('Cancel'),
+                                              ),
+                                              TextButton(
+                                                onPressed:
+                                                    adjustmentError == null
+                                                        ? () async {
+                                                          // Get supplier instead of customer
+                                                          Supplier supplier =
+                                                              Supplier.fromFirestore(
+                                                                await FirebaseFirestore
+                                                                    .instance
+                                                                    .doc(
+                                                                      widget
+                                                                          .order
+                                                                          .scref!
+                                                                          .path,
+                                                                    )
+                                                                    .get(),
+                                                              );
+                                                          // Proceed to generate the purchase bill
+                                                          generatePurchaseBill(
+                                                            // Assuming you have this function
+                                                            purchase: purchase,
+                                                            supplier: supplier,
+                                                            phones:
+                                                                widget
+                                                                    .order
+                                                                    .phoneList,
+                                                            note:
+                                                                noteController
+                                                                        .text
+                                                                        .trim()
+                                                                        .isNotEmpty
+                                                                    ? noteController
+                                                                        .text
+                                                                        .trim()
+                                                                    : null,
+                                                            adjustment:
+                                                                adjustmentController
+                                                                        .text
+                                                                        .trim()
+                                                                        .isNotEmpty
+                                                                    ? double.parse(
+                                                                      adjustmentController
+                                                                          .text
+                                                                          .trim(),
+                                                                    )
+                                                                    : null,
+                                                          );
+                                                          Navigator.of(
+                                                            context,
+                                                          ).pop();
+                                                        }
+                                                        : null,
+                                                child: const Text('Generate'),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      );
+                                    },
+                                  );
                                 }
                               } catch (e) {
                                 if (context.mounted) {
@@ -454,18 +573,23 @@ class _FinalPurchaseCardState extends State<FinalPurchaseCard> {
         _totalController.text.trim().isNotEmpty &&
         _gstController.text.trim().isNotEmpty &&
         _pstController.text.trim().isNotEmpty &&
-        //_paidController.text.trim().isNotEmpty &&
         _bankController.text.trim().isNotEmpty &&
         _upiController.text.trim().isNotEmpty &&
         _cashController.text.trim().isNotEmpty &&
         _creditController.text.trim().isNotEmpty;
   }
 
+  @override
   void dispose() {
     _bankController.dispose();
     _upiController.dispose();
     _cashController.dispose();
-    // ... other disposals
+    _gstController.dispose();
+    _pstController.dispose();
+    _amountController.dispose();
+    _totalController.dispose();
+    _paidController.dispose();
+    _creditController.dispose();
     super.dispose();
   }
 }

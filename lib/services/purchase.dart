@@ -16,10 +16,12 @@ Future<void> createPurchase(aromex_order.Order order, Purchase purchase) async {
   }
 
   await deductBalance(
-    purchase.paymentSource!,
     purchase.total,
     purchase.credit,
     purchaseRef,
+    purchase.bankPaid,
+    purchase.cashPaid,
+    purchase.upiPaid,
   );
   await addCreditToSupplier(order.scref!, purchase.credit);
   await addPurchaseToSupplier(order.scref!, purchaseRef);
@@ -27,21 +29,47 @@ Future<void> createPurchase(aromex_order.Order order, Purchase purchase) async {
 }
 
 Future<void> deductBalance(
-  BalanceType? paymentSource,
   double amount,
   double credit,
   DocumentReference purchaseRef,
+  double? cashPaid,
+  double? bankPaid,
+  double? upiPaid,
 ) async {
   amount -= credit;
 
   await Future.wait([
-    Balance.fromType(paymentSource!).then((balance) async {
-      await balance.removeAmount(
-        amount,
-        transactionType: TransactionType.purchase,
-        purchaseRef: purchaseRef,
-      );
-    }),
+    // Deduct from Cash balance
+    if ((cashPaid ?? 0) > 0)
+      Balance.fromType(BalanceType.cash).then((balance) async {
+        await balance.removeAmount(
+          cashPaid!,
+          transactionType: TransactionType.purchase,
+          purchaseRef: purchaseRef,
+        );
+      }),
+
+    // Deduct from Bank balance
+    if ((bankPaid ?? 0) > 0)
+      Balance.fromType(BalanceType.bank).then((balance) async {
+        await balance.removeAmount(
+          bankPaid!,
+          transactionType: TransactionType.purchase,
+          purchaseRef: purchaseRef,
+        );
+      }),
+
+    // Deduct from UPI balance
+    if ((upiPaid ?? 0) > 0)
+      Balance.fromType(BalanceType.upi).then((balance) async {
+        await balance.removeAmount(
+          upiPaid!,
+          transactionType: TransactionType.purchase,
+          purchaseRef: purchaseRef,
+        );
+      }),
+
+    // Handle credit (total due)
     if (credit > 0)
       Balance.fromType(BalanceType.totalDue).then((balance) async {
         await balance.addAmount(

@@ -1,6 +1,7 @@
 import 'package:aromex/firebase_options.dart';
 import 'package:aromex/theme.dart';
 import 'package:aromex/widgets/custom_drawer.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
@@ -8,7 +9,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(MyApp());
+
+  runApp(const MyApp());
 }
 
 class MyApp extends StatefulWidget {
@@ -28,21 +30,6 @@ class _MyAppState extends State<MyApp> {
           setState(() {});
         },
       ),
-      // FirebaseAuth.instance.currentUser == null
-      //     ? LoginPage(
-      //       onLoginSuccess: () {
-      //         setState(() {
-      //           // Trigger a rebuild to show the home page after login
-      //         });
-      //       },
-      //     )
-      //     : CustomDrawer(
-      //       onLogout: () {
-      //         setState(() {
-      //           // Trigger a rebuild to show the login page after logout
-      //         });
-      //       },
-      //     ),
       debugShowCheckedModeBanner: false,
     );
   }
