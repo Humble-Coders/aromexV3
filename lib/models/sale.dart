@@ -15,7 +15,6 @@ class Sale extends GenericFirebaseObject<Sale> {
   final double amount;
   final double gst;
   final double pst;
-  final BalanceType? paymentSource;
   final double total;
   final double paid;
   final double credit;
@@ -40,7 +39,6 @@ class Sale extends GenericFirebaseObject<Sale> {
     required this.amount,
     required this.gst,
     required this.pst,
-    this.paymentSource = BalanceType.cash,
     required this.date,
     this.total = 0.0,
     this.paid = 0.0,
@@ -71,7 +69,6 @@ class Sale extends GenericFirebaseObject<Sale> {
       "amount": amount,
       "gst": gst,
       "pst": pst,
-      "paymentSource": balanceTypeTitles[paymentSource],
       "date": date,
       "total": total,
       "paid": paid,
@@ -99,10 +96,7 @@ class Sale extends GenericFirebaseObject<Sale> {
       amount: (data['amount'] ?? 0.0).toDouble(),
       gst: (data['gst'] ?? 0.0).toDouble(),
       pst: (data['pst'] ?? 0.0).toDouble(),
-      paymentSource: BalanceType.values.firstWhere(
-        (type) => type.toString() == 'BalanceType.${data["paymentSource"]}',
-        orElse: () => BalanceType.cash,
-      ),
+
       date: (data['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
       total: (data['total'] ?? 0.0).toDouble(),
       paid: (data['paid'] ?? 0.0).toDouble(),
@@ -166,7 +160,6 @@ class Sale extends GenericFirebaseObject<Sale> {
       amount: amount ?? this.amount,
       gst: gst ?? this.gst,
       pst: pst ?? this.pst,
-      paymentSource: paymentSource ?? this.paymentSource,
       total: total ?? this.total,
       paid: paid ?? this.paid,
       credit: credit ?? this.credit,

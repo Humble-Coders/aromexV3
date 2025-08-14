@@ -41,7 +41,7 @@ class _SupplierProductsDashboardState extends State<SupplierProductsDashboard> {
     'November',
     'December',
   ];
-  final List<String> sortOptions = ['A to Z', 'Products', 'Date'];
+  final List<String> sortOptions = ['A to Z', 'Products', 'Date', 'Amount'];
 
   List<int> get years {
     final currentYear = DateTime.now().year;
@@ -51,6 +51,7 @@ class _SupplierProductsDashboardState extends State<SupplierProductsDashboard> {
   List<Supplier> allSuppliers = [];
   List<Supplier> filteredSuppliers = [];
   Map<String, int> supplierPhoneCounts = {};
+  Map<String, double> supplierTotalAmounts = {};
   List<Purchase> allPurchases = [];
 
   @override
@@ -88,6 +89,24 @@ class _SupplierProductsDashboardState extends State<SupplierProductsDashboard> {
       for (var supplierDoc in suppliersSnapshot.docs) {
         final supplier = Supplier.fromFirestore(supplierDoc);
         suppliers.add(supplier);
+      }
+
+      // Debug logging
+      print('DEBUG: Total suppliers loaded: ${suppliers.length}');
+      print('DEBUG: Total purchases loaded: ${allPurchases.length}');
+
+      // Print sample purchase data
+      if (allPurchases.isNotEmpty) {
+        final firstPurchase = allPurchases.first;
+        print('DEBUG: First purchase - ID: ${firstPurchase.id}');
+        print('DEBUG: First purchase - Amount: ${firstPurchase.amount}');
+        print('DEBUG: First purchase - Date: ${firstPurchase.date}');
+        print(
+          'DEBUG: First purchase - Supplier ID: ${firstPurchase.supplierRef.id}',
+        );
+        print(
+          'DEBUG: First purchase - Phones count: ${firstPurchase.phones.length}',
+        );
       }
 
       setState(() {
@@ -148,6 +167,7 @@ class _SupplierProductsDashboardState extends State<SupplierProductsDashboard> {
         end = DateTime(now.year, now.month, now.day, 23, 59, 59);
     }
 
+    print('DEBUG: Date range - Start: $start, End: $end');
     return DateTimeRange(start: start, end: end);
   }
 
@@ -155,25 +175,69 @@ class _SupplierProductsDashboardState extends State<SupplierProductsDashboard> {
     setState(() {
       final dateRange = getDateRange();
 
-      // Filter purchases by date range
+      // Filter purchases by date range and count phones + calculate total amounts per supplier
+      Map<String, int> phoneCounts = {};
+      Map<String, double> totalAmounts = {};
+
+      print('DEBUG: Total purchases before filtering: ${allPurchases.length}');
+
       final filteredPurchases =
           allPurchases.where((purchase) {
             final purchaseDate = purchase.date;
-            return purchaseDate.isAfter(
+            final isInRange =
+                purchaseDate.isAfter(
                   dateRange.start.subtract(Duration(days: 1)),
                 ) &&
                 purchaseDate.isBefore(dateRange.end.add(Duration(days: 1)));
+
+            if (!isInRange) {
+              print(
+                'DEBUG: Purchase ${purchase.id} excluded - Date: $purchaseDate (outside range)',
+              );
+            }
+
+            return isInRange;
           }).toList();
 
-      // Count phones bought from each supplier within the date range
-      Map<String, int> phoneCounts = {};
+      print('DEBUG: Filtered purchases count: ${filteredPurchases.length}');
+
       for (var purchase in filteredPurchases) {
         final supplierId = purchase.supplierRef.id;
         final phoneCount = purchase.phones.length;
+
+        // Handle different amount types
+        double purchaseAmount = 0.0;
+        try {
+          if (purchase.amount is int) {
+            purchaseAmount = (purchase.amount as int).toDouble();
+          } else if (purchase.amount is double) {
+            purchaseAmount = purchase.amount as double;
+          } else if (purchase.amount is String) {
+            purchaseAmount = double.parse(purchase.amount as String);
+          } else {
+            purchaseAmount = purchase.amount.toDouble();
+          }
+        } catch (e) {
+          print(
+            'DEBUG: Error parsing amount for purchase ${purchase.id}: ${purchase.amount} - $e',
+          );
+          purchaseAmount = 0.0;
+        }
+
         phoneCounts[supplierId] = (phoneCounts[supplierId] ?? 0) + phoneCount;
+        totalAmounts[supplierId] =
+            (totalAmounts[supplierId] ?? 0.0) + purchaseAmount;
+
+        print(
+          'DEBUG: Purchase ${purchase.id} - Supplier: $supplierId, Amount: $purchaseAmount, Phones: $phoneCount',
+        );
       }
 
       supplierPhoneCounts = phoneCounts;
+      supplierTotalAmounts = totalAmounts;
+
+      print('DEBUG: Supplier phone counts: $supplierPhoneCounts');
+      print('DEBUG: Supplier total amounts: $supplierTotalAmounts');
 
       // Filter suppliers by search query
       filteredSuppliers =
@@ -186,6 +250,8 @@ class _SupplierProductsDashboardState extends State<SupplierProductsDashboard> {
                 supplier.email.toLowerCase().contains(searchLower);
           }).toList();
 
+      print('DEBUG: Filtered suppliers count: ${filteredSuppliers.length}');
+
       // Sort items
       filteredSuppliers.sort((a, b) {
         int comparison = 0;
@@ -197,6 +263,15 @@ class _SupplierProductsDashboardState extends State<SupplierProductsDashboard> {
             final aCount = supplierPhoneCounts[a.id] ?? 0;
             final bCount = supplierPhoneCounts[b.id] ?? 0;
             comparison = bCount.compareTo(aCount);
+
+            if (comparison == 0) {
+              comparison = a.name.compareTo(b.name);
+            }
+            break;
+          case 'Amount':
+            final aAmount = supplierTotalAmounts[a.id] ?? 0.0;
+            final bAmount = supplierTotalAmounts[b.id] ?? 0.0;
+            comparison = bAmount.compareTo(aAmount);
 
             if (comparison == 0) {
               comparison = a.name.compareTo(b.name);
@@ -273,6 +348,10 @@ class _SupplierProductsDashboardState extends State<SupplierProductsDashboard> {
     final totalPhones = filteredSuppliers.fold<int>(
       0,
       (sum, supplier) => sum + (supplierPhoneCounts[supplier.id] ?? 0),
+    );
+    final totalAmount = filteredSuppliers.fold<double>(
+      0.0,
+      (sum, supplier) => sum + (supplierTotalAmounts[supplier.id] ?? 0.0),
     );
     final averagePhones =
         totalSuppliers > 0 ? totalPhones / totalSuppliers : 0.0;
@@ -367,7 +446,7 @@ class _SupplierProductsDashboardState extends State<SupplierProductsDashboard> {
                             Text(
                               selectedDate != null
                                   ? DateFormat.yMMMd().format(selectedDate!)
-                                  : 'Select Date',
+                                  : 'Today (${DateFormat.yMMMd().format(DateTime.now())})',
                               style: textTheme.bodyMedium,
                             ),
                           ],
@@ -542,6 +621,13 @@ class _SupplierProductsDashboardState extends State<SupplierProductsDashboard> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: SummaryCard(
+                        title: 'Total Purchase Amount',
+                        value: formatCurrency(totalAmount),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: SummaryCard(
                         title: 'Avg Phones/Supplier',
                         value: averagePhones.toStringAsFixed(1),
                       ),
@@ -570,11 +656,17 @@ class _SupplierProductsDashboardState extends State<SupplierProductsDashboard> {
               // Suppliers Table
               GenericCustomTable<Supplier>(
                 entries: [...filteredSuppliers],
-                headers: ['Supplier', 'Number of Products Bought'],
+                headers: [
+                  'Supplier',
+                  'Number of Products Bought',
+                  'Total Amount',
+                ],
                 valueGetters: [
                   (supplier) => supplier.name,
                   (supplier) =>
                       (supplierPhoneCounts[supplier.id] ?? 0).toString(),
+                  (supplier) =>
+                      formatCurrency(supplierTotalAmounts[supplier.id] ?? 0.0),
                 ],
                 onTap: (supplier) {
                   // Handle tap - show detailed view
@@ -601,6 +693,10 @@ class _SupplierProductsDashboardState extends State<SupplierProductsDashboard> {
                               ],
                               Text(
                                 'Phones Bought: ${supplierPhoneCounts[supplier.id] ?? 0}',
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Total Purchase Amount: ${formatCurrency(supplierTotalAmounts[supplier.id] ?? 0.0)}',
                               ),
                               const SizedBox(height: 8),
                               Text(

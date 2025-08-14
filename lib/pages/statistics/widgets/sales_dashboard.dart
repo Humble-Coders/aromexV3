@@ -26,6 +26,9 @@ class _SalesDashboardState extends State<SalesDashboard> {
   bool isLoading = true;
   SalePhonesPage? salePhonesPage;
 
+  // Payment source filter
+  String selectedPaymentFilter = 'All';
+
   final List<String> periods = ['Day', 'Month', 'Year'];
   final List<String> months = [
     'January',
@@ -42,6 +45,9 @@ class _SalesDashboardState extends State<SalesDashboard> {
     'December',
   ];
   final List<String> sortOptions = ['Revenue', 'Date', 'Amount', 'Customer'];
+
+  // Payment filter options
+  final List<String> paymentFilterOptions = ['All', 'Cash', 'Card', 'Bank'];
 
   List<int> get years {
     final currentYear = DateTime.now().year;
@@ -61,33 +67,49 @@ class _SalesDashboardState extends State<SalesDashboard> {
     List<String> paymentParts = [];
 
     // Check for cash payment - keep original format
-    if (sale.cashPaid != null && sale.cashPaid! > 0) {
+    if (sale.cashPaid != null && sale.cashPaid! >= 0) {
       paymentParts.add('Cash(${sale.cashPaid!.toInt()})');
     }
 
     // Check for UPI payment - keep original format
-    if (sale.upiPaid != null && sale.upiPaid! > 0) {
-      paymentParts.add('UPI(${sale.upiPaid!.toInt()})');
+    if (sale.upiPaid != null && sale.upiPaid! >= 0) {
+      paymentParts.add('Card(${sale.upiPaid!.toInt()})');
     }
 
     // Check for bank payment - keep original format
-    if (sale.bankPaid != null && sale.bankPaid! > 0) {
+    if (sale.bankPaid != null && sale.bankPaid! >= 0) {
       paymentParts.add('Bank(${sale.bankPaid!.toInt()})');
     }
 
     // Check for credit payment - keep original format
 
     // If no specific payment amounts, fall back to original paymentSource
-    if (paymentParts.isEmpty) {
-      final paymentSourceTitle = balanceTypeTitles[sale.paymentSource];
-      if (paymentSourceTitle != null) {
-        return paymentSourceTitle.toString();
-      }
-      return "cash";
-    }
 
     // Join multiple payment methods with comma and space - keep original format
-    return paymentParts.join(', ');
+    return paymentParts.isNotEmpty ? paymentParts.join(', ') : 'Unknown';
+  }
+
+  // Helper method to determine payment type for filtering
+  String getPaymentType(Sale sale) {
+    List<String> paymentTypes = [];
+
+    if (sale.cashPaid != null && sale.cashPaid! > 0) {
+      paymentTypes.add('Cash');
+    }
+    if (sale.upiPaid != null && sale.upiPaid! > 0) {
+      paymentTypes.add('Card');
+    }
+    if (sale.bankPaid != null && sale.bankPaid! > 0) {
+      paymentTypes.add('Bank');
+    }
+
+    if (paymentTypes.isEmpty) {
+      // Fallback to paymentSource if specific payments not available
+
+      return '-';
+    }
+
+    return paymentTypes.first;
   }
 
   Future<void> fetchSalesData() async {
@@ -175,11 +197,13 @@ class _SalesDashboardState extends State<SalesDashboard> {
     return DateTimeRange(start: start, end: end);
   }
 
+  // Replace the existing _applyFiltersAndSort method with this updated version
+
   void _applyFiltersAndSort() {
     setState(() {
       final dateRange = getDateRange();
 
-      // Filter by search query AND date range
+      // Filter by search query, date range, AND payment source
       filteredSales =
           allSales.where((sale) {
             // Search filter
@@ -190,9 +214,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
                   sale.orderNumber.toLowerCase().contains(searchLower) ||
                   (sale.customerName?.toLowerCase().contains(searchLower) ??
                       false) ||
-                  balanceTypeTitles[sale.paymentSource]!.toLowerCase().contains(
-                    searchLower,
-                  );
+                  formatPaymentSource(sale).toLowerCase().contains(searchLower);
             }
 
             // Date filter
@@ -202,7 +224,25 @@ class _SalesDashboardState extends State<SalesDashboard> {
                 ) &&
                 sale.date.isBefore(dateRange.end.add(Duration(days: 1)));
 
-            return matchesSearch && matchesDate;
+            // Payment source filter - UPDATED LOGIC
+            bool matchesPayment = selectedPaymentFilter == 'All';
+            if (!matchesPayment) {
+              switch (selectedPaymentFilter) {
+                case 'Cash':
+                  matchesPayment = sale.cashPaid != null && sale.cashPaid! > 0;
+                  break;
+                case 'Card':
+                  matchesPayment = sale.upiPaid != null && sale.upiPaid! > 0;
+                  break;
+                case 'Bank':
+                  matchesPayment = sale.bankPaid != null && sale.bankPaid! > 0;
+                  break;
+                default:
+                  matchesPayment = false;
+              }
+            }
+
+            return matchesSearch && matchesDate && matchesPayment;
           }).toList();
 
       // Sort items
@@ -260,6 +300,13 @@ class _SalesDashboardState extends State<SalesDashboard> {
   void _onDateChanged(DateTime? date) {
     setState(() {
       selectedDate = date;
+    });
+    _applyFiltersAndSort();
+  }
+
+  void _onPaymentFilterChanged(String filter) {
+    setState(() {
+      selectedPaymentFilter = filter;
     });
     _applyFiltersAndSort();
   }
@@ -448,7 +495,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Search and Controls Row
+                  // Search, Payment Filter and Controls Row
                   IntrinsicHeight(
                     child: Row(
                       children: [
@@ -474,6 +521,39 @@ class _SalesDashboardState extends State<SalesDashboard> {
                                 vertical: 8,
                               ),
                             ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        // Payment Filter Dropdown
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: colorScheme.outline),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.payment),
+                              const SizedBox(width: 8),
+                              Text('Payment: '),
+                              DropdownButton<String>(
+                                value: selectedPaymentFilter,
+                                underline: const SizedBox(),
+                                items:
+                                    paymentFilterOptions.map((option) {
+                                      return DropdownMenuItem(
+                                        value: option,
+                                        child: Text(option),
+                                      );
+                                    }).toList(),
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    _onPaymentFilterChanged(value);
+                                  }
+                                },
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -575,6 +655,46 @@ class _SalesDashboardState extends State<SalesDashboard> {
                       ],
                     ),
                   const SizedBox(height: 24),
+
+                  // Filter Status Indicator
+                  if (selectedPaymentFilter != 'All') ...[
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.filter_alt,
+                            size: 16,
+                            color: colorScheme.onPrimaryContainer,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Filtered by: $selectedPaymentFilter payments',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () => _onPaymentFilterChanged('All'),
+                            child: Icon(
+                              Icons.close,
+                              size: 16,
+                              color: colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
                   Text(
                     'Sales ',
                     style: textTheme.titleLarge?.copyWith(
@@ -598,8 +718,8 @@ class _SalesDashboardState extends State<SalesDashboard> {
                       (sale) => sale.orderNumber,
                       (sale) => sale.customerName ?? 'N/A',
                       (sale) => formatCurrency(sale.amount),
-                      (sale) => formatPaymentSource(sale) ?? 'Unknown',
-                      (sale) => formatCurrency(sale.credit),
+                      (sale) => formatPaymentSource(sale),
+                      (sale) => formatCurrency(sale.credit ?? 0),
                     ],
                     onTap: (sale) {
                       setState(() {

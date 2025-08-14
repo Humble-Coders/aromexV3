@@ -1,5 +1,6 @@
 import 'package:aromex/models/balance_generic.dart';
 import 'package:aromex/models/middleman.dart';
+import 'package:aromex/models/purchase.dart';
 import 'package:aromex/models/sale.dart';
 import 'package:aromex/pages/home/pages/sale_detail_page.dart';
 import 'package:aromex/pages/home/widgets/balance_card.dart';
@@ -27,9 +28,32 @@ class _MiddlemanProfileState extends State<MiddlemanProfile> {
   @override
   void initState() {
     super.initState();
-    currentMiddleman =
-    widget.middleman!;
+    currentMiddleman = widget.middleman!;
     loadSales();
+  }
+
+  String formatPaymentSource(Sale sale) {
+    List<String> paymentParts = [];
+
+    // Check for cash payment - keep original format
+    if (sale.cashPaid != null && sale.cashPaid! > 0) {
+      paymentParts.add('Cash(${sale.cashPaid!.toInt()})');
+    }
+
+    // Check for UPI payment - keep original format
+    if (sale.upiPaid != null && sale.upiPaid! > 0) {
+      paymentParts.add('Card(${sale.upiPaid!.toInt()})');
+    }
+
+    // Check for bank payment - keep original format
+    if (sale.bankPaid != null && sale.bankPaid! > 0) {
+      paymentParts.add('Bank(${sale.bankPaid!.toInt()})');
+    }
+
+    // If no specific payment amounts, fall back to original paymentSource
+
+    // Join multiple payment methods with comma and space - keep original format
+    return paymentParts.isNotEmpty ? paymentParts.join(', ') : 'Unknown';
   }
 
   Future<List<Sale>> fetchSales(List<DocumentReference>? refs) async {
@@ -132,7 +156,8 @@ class _MiddlemanProfileState extends State<MiddlemanProfile> {
                       title: "Credit Details",
                       amount: currentMiddleman.balance,
                       updatedAt: updatedAt,
-                      isLoading: false, onTap: () {  },
+                      isLoading: false,
+                      onTap: () {},
                     ),
                   ),
                   const Expanded(child: SizedBox()),
@@ -141,46 +166,46 @@ class _MiddlemanProfileState extends State<MiddlemanProfile> {
               const SizedBox(height: 16),
               sales.isNotEmpty
                   ? GenericCustomTable<Sale>(
-                onTap: (p) {
-                  setState(() {
-                    saleDetailPage = SaleDetailPage(
-                      sale: p,
-                      onBack: () {
-                        setState(() {
-                          saleDetailPage = null;
-                        });
-                      },
-                    );
-                  });
-                },
-                entries: sales,
-                headers: [
-                  "Date",
-                  "Order No.",
-                  "Amount",
-                  "Payment Source",
-                  "Credit",
-                ],
-                valueGetters: [
+                    onTap: (p) {
+                      setState(() {
+                        saleDetailPage = SaleDetailPage(
+                          sale: p,
+                          onBack: () {
+                            setState(() {
+                              saleDetailPage = null;
+                            });
+                          },
+                        );
+                      });
+                    },
+                    entries: sales,
+                    headers: [
+                      "Date",
+                      "Order No.",
+                      "Amount",
+                      "Payment Source",
+                      "Credit",
+                    ],
+                    valueGetters: [
                       (p) => DateFormat.yMd().format(p.date),
                       (p) => p.orderNumber,
                       (p) =>
-                      NumberFormat.currency(symbol: '\$').format(p.amount),
-                      (p) => balanceTypeTitles[p.paymentSource]?? 'Unknown',
+                          NumberFormat.currency(symbol: '\$').format(p.amount),
+                      (p) => formatPaymentSource(p),
                       (p) =>
-                      NumberFormat.currency(symbol: '\$').format(p.credit),
-                ],
-              )
+                          NumberFormat.currency(symbol: '\$').format(p.credit),
+                    ],
+                  )
                   : isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : Center(
-                child: Text(
-                  'No Sales Found',
-                  style: textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSecondary,
+                    child: Text(
+                      'No Sales Found',
+                      style: textTheme.bodyLarge?.copyWith(
+                        color: colorScheme.onSecondary,
+                      ),
+                    ),
                   ),
-                ),
-              ),
             ],
           ),
         ),

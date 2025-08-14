@@ -105,10 +105,6 @@ class _CustomerProfileState extends State<CustomerProfile> {
 
     // If no specific payment amounts, fall back to original paymentSource
     if (paymentParts.isEmpty) {
-      final paymentSourceTitle = balanceTypeTitles[sale.paymentSource];
-      if (paymentSourceTitle != null) {
-        return paymentSourceTitle.toString();
-      }
       return "cash";
     }
 

@@ -41,7 +41,7 @@ class _CustomerProductsDashboardState extends State<CustomerProductsDashboard> {
     'November',
     'December',
   ];
-  final List<String> sortOptions = ['A to Z', 'Products', 'Date'];
+  final List<String> sortOptions = ['A to Z', 'Products', 'Date', 'Amount'];
 
   List<int> get years {
     final currentYear = DateTime.now().year;
@@ -51,6 +51,7 @@ class _CustomerProductsDashboardState extends State<CustomerProductsDashboard> {
   List<Customer> allCustomers = [];
   List<Customer> filteredCustomers = [];
   Map<String, int> customerPhoneCounts = {};
+  Map<String, double> customerTotalAmounts = {};
   List<Sale> allSales = [];
 
   @override
@@ -91,6 +92,20 @@ class _CustomerProductsDashboardState extends State<CustomerProductsDashboard> {
         sales.add(sale);
       }
 
+      // Debug logging
+      print('DEBUG: Total customers loaded: ${customers.length}');
+      print('DEBUG: Total sales loaded: ${sales.length}');
+
+      // Print sample sale data
+      if (sales.isNotEmpty) {
+        final firstSale = sales.first;
+        print('DEBUG: First sale - ID: ${firstSale.id}');
+        print('DEBUG: First sale - Amount: ${firstSale.amount}');
+        print('DEBUG: First sale - Date: ${firstSale.date}');
+        print('DEBUG: First sale - Customer ID: ${firstSale.customerRef.id}');
+        print('DEBUG: First sale - Phones count: ${firstSale.phones.length}');
+      }
+
       setState(() {
         allCustomers = customers;
         allSales = sales;
@@ -120,7 +135,14 @@ class _CustomerProductsDashboardState extends State<CustomerProductsDashboard> {
       case 'Day':
         final targetDate = selectedDate ?? now;
         start = DateTime(targetDate.year, targetDate.month, targetDate.day);
-        end = DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59, 59);
+        end = DateTime(
+          targetDate.year,
+          targetDate.month,
+          targetDate.day,
+          23,
+          59,
+          59,
+        );
         break;
       case 'Month':
         if (selectedMonth != null) {
@@ -141,9 +163,17 @@ class _CustomerProductsDashboardState extends State<CustomerProductsDashboard> {
       default:
         final targetDate = selectedDate ?? now;
         start = DateTime(targetDate.year, targetDate.month, targetDate.day);
-        end = DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59, 59);
+        end = DateTime(
+          targetDate.year,
+          targetDate.month,
+          targetDate.day,
+          23,
+          59,
+          59,
+        );
     }
 
+    print('DEBUG: Date range - Start: $start, End: $end');
     return DateTimeRange(start: start, end: end);
   }
 
@@ -151,32 +181,80 @@ class _CustomerProductsDashboardState extends State<CustomerProductsDashboard> {
     setState(() {
       final dateRange = getDateRange();
 
-      // Filter sales by date range and count phones per customer
+      // Filter sales by date range and count phones + calculate total amounts per customer
       Map<String, int> phoneCounts = {};
-      
-      final filteredSales = allSales.where((sale) {
-        final saleDate = sale.date;
-        return saleDate.isAfter(dateRange.start.subtract(Duration(days: 1))) &&
-               saleDate.isBefore(dateRange.end.add(Duration(days: 1)));
-      });
+      Map<String, double> totalAmounts = {};
+
+      print('DEBUG: Total sales before filtering: ${allSales.length}');
+
+      final filteredSales =
+          allSales.where((sale) {
+            final saleDate = sale.date;
+            final isInRange =
+                saleDate.isAfter(dateRange.start.subtract(Duration(days: 1))) &&
+                saleDate.isBefore(dateRange.end.add(Duration(days: 1)));
+
+            if (!isInRange) {
+              print(
+                'DEBUG: Sale ${sale.id} excluded - Date: $saleDate (outside range)',
+              );
+            }
+
+            return isInRange;
+          }).toList();
+
+      print('DEBUG: Filtered sales count: ${filteredSales.length}');
 
       for (var sale in filteredSales) {
         final customerId = sale.customerRef.id;
         final phoneCount = sale.phones.length;
+
+        // Handle different amount types
+        double saleAmount = 0.0;
+        try {
+          if (sale.amount is int) {
+            saleAmount = (sale.amount as int).toDouble();
+          } else if (sale.amount is double) {
+            saleAmount = sale.amount as double;
+          } else if (sale.amount is String) {
+            saleAmount = double.parse(sale.amount as String);
+          } else {
+            saleAmount = sale.amount.toDouble();
+          }
+        } catch (e) {
+          print(
+            'DEBUG: Error parsing amount for sale ${sale.id}: ${sale.amount} - $e',
+          );
+          saleAmount = 0.0;
+        }
+
         phoneCounts[customerId] = (phoneCounts[customerId] ?? 0) + phoneCount;
+        totalAmounts[customerId] =
+            (totalAmounts[customerId] ?? 0.0) + saleAmount;
+
+        print(
+          'DEBUG: Sale ${sale.id} - Customer: $customerId, Amount: $saleAmount, Phones: $phoneCount',
+        );
       }
 
       customerPhoneCounts = phoneCounts;
+      customerTotalAmounts = totalAmounts;
+
+      print('DEBUG: Customer phone counts: $customerPhoneCounts');
+      print('DEBUG: Customer total amounts: $customerTotalAmounts');
 
       // Filter customers by search query
-      filteredCustomers = allCustomers.where((customer) {
-        if (searchQuery.isEmpty) return true;
+      filteredCustomers =
+          allCustomers.where((customer) {
+            if (searchQuery.isEmpty) return true;
 
-        final searchLower = searchQuery.toLowerCase();
-        return customer.name.toLowerCase().contains(searchLower) ||
-            customer.phone.toLowerCase().contains(searchLower) ||
-            customer.email.toLowerCase().contains(searchLower);
-      }).toList();
+            final searchLower = searchQuery.toLowerCase();
+            return customer.name.toLowerCase().contains(searchLower) ||
+                customer.phone.toLowerCase().contains(searchLower) ||
+                customer.email.toLowerCase().contains(searchLower);
+          }).toList();
+
+      print('DEBUG: Filtered customers count: ${filteredCustomers.length}');
 
       // Sort items
       filteredCustomers.sort((a, b) {
@@ -189,6 +267,15 @@ class _CustomerProductsDashboardState extends State<CustomerProductsDashboard> {
             final aCount = customerPhoneCounts[a.id] ?? 0;
             final bCount = customerPhoneCounts[b.id] ?? 0;
             comparison = bCount.compareTo(aCount);
+
+            if (comparison == 0) {
+              comparison = a.name.compareTo(b.name);
+            }
+            break;
+          case 'Amount':
+            final aAmount = customerTotalAmounts[a.id] ?? 0.0;
+            final bAmount = customerTotalAmounts[b.id] ?? 0.0;
+            comparison = bAmount.compareTo(aAmount);
 
             if (comparison == 0) {
               comparison = a.name.compareTo(b.name);
@@ -262,6 +349,10 @@ class _CustomerProductsDashboardState extends State<CustomerProductsDashboard> {
       0,
       (sum, customer) => sum + (customerPhoneCounts[customer.id] ?? 0),
     );
+    final totalAmount = filteredCustomers.fold<double>(
+      0.0,
+      (sum, customer) => sum + (customerTotalAmounts[customer.id] ?? 0.0),
+    );
     final averagePhones =
         totalCustomers > 0 ? totalPhones / totalCustomers : 0.0;
     final maxPhones =
@@ -281,6 +372,8 @@ class _CustomerProductsDashboardState extends State<CustomerProductsDashboard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Debug Info Card (Remove this in production)
+
               // Top Controls Row
               Row(
                 children: [
@@ -339,7 +432,10 @@ class _CustomerProductsDashboardState extends State<CustomerProductsDashboard> {
                     InkWell(
                       onTap: _selectDate,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           border: Border.all(color: colorScheme.outline),
                           borderRadius: BorderRadius.circular(8),
@@ -352,7 +448,7 @@ class _CustomerProductsDashboardState extends State<CustomerProductsDashboard> {
                             Text(
                               selectedDate != null
                                   ? DateFormat.yMMMd().format(selectedDate!)
-                                  : 'Select Date',
+                                  : 'Today (${DateFormat.yMMMd().format(DateTime.now())})',
                               style: textTheme.bodyMedium,
                             ),
                           ],
@@ -527,6 +623,13 @@ class _CustomerProductsDashboardState extends State<CustomerProductsDashboard> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: SummaryCard(
+                        title: 'Total Sales Amount',
+                        value: formatCurrency(totalAmount),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: SummaryCard(
                         title: 'Avg Phones/Customer',
                         value: averagePhones.toStringAsFixed(1),
                       ),
@@ -555,11 +658,17 @@ class _CustomerProductsDashboardState extends State<CustomerProductsDashboard> {
               // Customers Table
               GenericCustomTable<Customer>(
                 entries: [...filteredCustomers],
-                headers: ['Customer', 'Number of Products Bought'],
+                headers: [
+                  'Customer',
+                  'Number of Products Bought',
+                  'Total Amount',
+                ],
                 valueGetters: [
                   (customer) => customer.name,
                   (customer) =>
                       (customerPhoneCounts[customer.id] ?? 0).toString(),
+                  (customer) =>
+                      formatCurrency(customerTotalAmounts[customer.id] ?? 0.0),
                 ],
                 onTap: (customer) {
                   // Handle tap - show detailed view
@@ -586,6 +695,10 @@ class _CustomerProductsDashboardState extends State<CustomerProductsDashboard> {
                               ],
                               Text(
                                 'Phones Bought: ${customerPhoneCounts[customer.id] ?? 0}',
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Total Purchase Amount: ${formatCurrency(customerTotalAmounts[customer.id] ?? 0.0)}',
                               ),
                               const SizedBox(height: 8),
                               Text(
