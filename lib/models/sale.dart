@@ -62,8 +62,9 @@ class Sale extends GenericFirebaseObject<Sale> {
   String get collName => collectionName;
 
   @override
+  @override
   Map<String, dynamic> toFirestore() {
-    return {
+    Map<String, dynamic> data = {
       "orderNumber": orderNumber,
       "originalPrice": originalPrice,
       "amount": amount,
@@ -80,11 +81,20 @@ class Sale extends GenericFirebaseObject<Sale> {
       "mPaid": mPaid,
       "mCredit": mCredit,
       "customerName": customerName,
-      // Only add payment fields if they are not null
-      if (bankPaid != null) "bankPaid": bankPaid,
-      if (upiPaid != null) "cardPaid": upiPaid,
-      if (cashPaid != null) "cashPaid": cashPaid,
     };
+
+    // Only add payment fields if they are not null
+    if (bankPaid != null) {
+      data["bankPaid"] = bankPaid!;
+    }
+    if (upiPaid != null) {
+      data["cardPaid"] = upiPaid!;
+    }
+    if (cashPaid != null) {
+      data["cashPaid"] = cashPaid!;
+    }
+
+    return data;
   }
 
   factory Sale.fromFirestore(DocumentSnapshot doc) {
