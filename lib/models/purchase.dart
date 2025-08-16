@@ -52,25 +52,34 @@ class Purchase extends GenericFirebaseObject<Purchase> {
   String get collName => collectionName;
 
   @override
+  @override
   Map<String, dynamic> toFirestore() {
-    return {
+    Map<String, dynamic> data = {
       "orderNumber": orderNumber,
       "phones": phones,
       "supplierId": supplierRef,
       "amount": amount,
       "gst": gst,
       "pst": pst,
-      "paymentSource": balanceTypeTitles[paymentSource],
       "date": date,
-      // Only add payment fields if they are not null
-      if (bankPaid != null) "bankPaid": bankPaid,
-      if (upiPaid != null) "cardPaid": upiPaid,
-      if (cashPaid != null) "cashPaid": cashPaid,
       "total": total,
       "paid": paid,
       "credit": credit,
       "supplierName": supplierName,
     };
+
+    // Only add payment fields if they are not null
+    if (bankPaid != null) {
+      data["bankPaid"] = bankPaid!;
+    }
+    if (upiPaid != null) {
+      data["cardPaid"] = upiPaid!;
+    }
+    if (cashPaid != null) {
+      data["cashPaid"] = cashPaid!;
+    }
+
+    return data;
   }
 
   factory Purchase.fromFirestore(DocumentSnapshot doc) {
