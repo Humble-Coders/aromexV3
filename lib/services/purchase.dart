@@ -21,7 +21,7 @@ Future<void> createPurchase(aromex_order.Order order, Purchase purchase) async {
     purchaseRef,
     purchase.bankPaid,
     purchase.cashPaid,
-    purchase.upiPaid,
+    purchase.cardPaid,
   );
   await addCreditToSupplier(order.scref!, purchase.credit);
   await addPurchaseToSupplier(order.scref!, purchaseRef);

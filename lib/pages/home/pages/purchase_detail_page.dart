@@ -57,8 +57,8 @@ class _PurchaseDetailPageState extends State<PurchaseDetailPage> {
     }
 
     // Check for UPI payment - keep original format
-    if (purchase.upiPaid != null && purchase.upiPaid! >= 0) {
-      paymentParts.add('Card(${purchase.upiPaid!.toInt()})');
+    if (purchase.cardPaid != null && purchase.cardPaid! >= 0) {
+      paymentParts.add('Card(${purchase.cardPaid!.toInt()})');
     }
 
     // Check for bank payment - keep original format

@@ -75,8 +75,8 @@ class _PurchaseRecordState extends State<PurchaseRecord> {
     }
 
     // Check for UPI payment - keep original format
-    if (pur.upiPaid != null && pur.upiPaid! >= 0) {
-      paymentParts.add('Card(${pur.upiPaid!.toInt()})');
+    if (pur.cardPaid != null && pur.cardPaid! >= 0) {
+      paymentParts.add('Card(${pur.cardPaid!.toInt()})');
     }
 
     // Check for bank payment - keep original format

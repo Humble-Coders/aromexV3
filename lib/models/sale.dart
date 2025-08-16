@@ -234,6 +234,10 @@ Future<void> generateBill({
   double? adjustment,
   String? note,
 }) async {
+  // Debug payment details
+  print('Generating bill for sale: ${sale.orderNumber}');
+  //  sale.debugPaymentDetails();
+
   List<BillItem> items = [];
   Map<Phone, bool> processedPhones = {};
 
@@ -270,7 +274,7 @@ Future<void> generateBill({
     }
   }
 
-  // Create the bill with dynamic admin info including GST and PST percentages from sale
+  // Create the bill with payment details from sale
   Bill bill = await createBillWithAdminInfo(
     time: sale.date,
     customer: BillCustomer(
@@ -281,10 +285,19 @@ Future<void> generateBill({
     items: items,
     note: note,
     adjustment: adjustment,
-    billType: BillType.sale, // Specify as sale bill
-    gst: sale.gst, // Pass GST percentage from sale
-    pst: sale.pst, // Pass PST percentage from sale
+    billType: BillType.sale,
+    gst: sale.gst,
+    pst: sale.pst,
+    // Pass payment details - use 0.0 if null
+    cashPaid: sale.cashPaid ?? 0.0,
+    cardPaid: sale.cashPaid ?? 0.0,
+    bankPaid: sale.bankPaid ?? 0.0,
   );
+
+  print('Bill payment details:');
+  print('  Cash: ${bill.cashPaidFormatted}');
+  print('  Card: ${bill.cardPaidFormatted}');
+  print('  Bank: ${bill.bankPaidFormatted}');
 
   await generatePdfInvoice(bill);
 }

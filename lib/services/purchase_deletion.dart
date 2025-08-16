@@ -45,7 +45,7 @@ Future<void> deletePurchaseWithReversal(Purchase purchase) async {
     await Future.wait([
       reversePayment(BalanceType.cash, purchase.cashPaid ?? 0),
       reversePayment(BalanceType.bank, purchase.bankPaid ?? 0),
-      reversePayment(BalanceType.upi, purchase.upiPaid ?? 0),
+      reversePayment(BalanceType.upi, purchase.cardPaid ?? 0),
     ]);
 
     // 3. Reverse Total Due if credit was used

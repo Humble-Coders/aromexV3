@@ -358,7 +358,7 @@ class _FinalPurchaseCardState extends State<FinalPurchaseCard> {
                                 supplierName: widget.order.scName,
                                 amount: widget.order.amount,
                                 bankPaid: double.parse(_bankController.text),
-                                upiPaid: double.parse(_upiController.text),
+                                cardPaid: double.parse(_upiController.text),
                                 cashPaid: double.parse(_cashController.text),
                                 gst: double.parse(_gstController.text),
                                 pst: double.parse(_pstController.text),
