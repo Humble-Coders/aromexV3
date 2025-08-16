@@ -32,22 +32,38 @@ class Middleman extends GenericFirebaseObject<Middleman> {
 
   @override
   factory Middleman.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    return Middleman(
-      id: doc.id,
-      name: data['name'] ?? '',
-      phone: data['phone'] ?? '',
-      email: data['email'] ?? '',
-      address: data['address'] ?? '',
-      commission: (data['commission'] ?? 0.0).toDouble(),
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      balance: (data['balance'] ?? 0.0).toDouble(),
-      transactionHistory:
-          (data['transactionHistory'] as List<dynamic>?)
-              ?.cast<DocumentReference>(),
-      snapshot: doc,
-      updatedAt: (data['updatedAt'] as Timestamp?),
-    );
+    try {
+      final data = doc.data();
+      if (data == null) {
+        throw ArgumentError('Document data is null');
+      }
+      
+      final middlemanData = data as Map<String, dynamic>;
+      
+      return Middleman(
+        id: doc.id,
+        name: middlemanData['name'] ?? '',
+        phone: middlemanData['phone'] ?? '',
+        email: middlemanData['email'] ?? '',
+        address: middlemanData['address'] ?? '',
+        commission: (middlemanData['commission'] ?? 0.0).toDouble(),
+        createdAt: (middlemanData['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        balance: (middlemanData['balance'] ?? 0.0).toDouble(),
+        transactionHistory: (middlemanData['transactionHistory'] as List<dynamic>?)
+                ?.cast<DocumentReference>(),
+        snapshot: doc,
+        updatedAt: (middlemanData['updatedAt'] as Timestamp?),
+      );
+    } catch (e) {
+      print('Error creating Middleman from Firestore document ${doc.id}: $e');
+      // Return a default middleman if there's an error
+      return Middleman(
+        name: "Unknown",
+        phone: "",
+        commission: 0.0,
+        createdAt: DateTime.now(),
+      );
+    }
   }
 
   @override

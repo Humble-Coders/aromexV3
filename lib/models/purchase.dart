@@ -52,7 +52,6 @@ class Purchase extends GenericFirebaseObject<Purchase> {
   String get collName => collectionName;
 
   @override
-  @override
   Map<String, dynamic> toFirestore() {
     Map<String, dynamic> data = {
       "orderNumber": orderNumber,
@@ -83,38 +82,57 @@ class Purchase extends GenericFirebaseObject<Purchase> {
   }
 
   factory Purchase.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    return Purchase(
-      id: doc.id,
-      orderNumber: data["orderNumber"],
-      phones: (data['phones'] as List<dynamic>).cast<DocumentReference>(),
-      supplierRef: data["supplierId"],
-      amount: data["amount"].toDouble(),
-      gst: data["gst"].toDouble(),
-      pst: data["pst"].toDouble(),
-      paymentSource: BalanceType.values.firstWhere(
-        (type) => type.toString() == 'BalanceType.${data["paymentSource"]}',
-        orElse: () => BalanceType.cash,
-      ),
-      date: (data["date"] as Timestamp).toDate(),
-      total: (data["total"] ?? 0.0).toDouble(),
-      paid: (data["paid"] ?? 0.0).toDouble(),
-      credit: (data["credit"] ?? 0.0).toDouble(),
-      snapshot: doc,
-      supplierName: data["supplierName"] ?? "",
-      bankPaid:
-          data["bankPaid"] != null
-              ? (data["bankPaid"] as num).toDouble()
-              : null,
-      upiPaid:
-          data["cardPaid"] != null
-              ? (data["cardPaid"] as num).toDouble()
-              : null,
-      cashPaid:
-          data["cashPaid"] != null
-              ? (data["cashPaid"] as num).toDouble()
-              : null,
-    );
+    try {
+      final data = doc.data();
+      if (data == null) {
+        throw ArgumentError('Document data is null');
+      }
+      
+      final purchaseData = data as Map<String, dynamic>;
+      
+      return Purchase(
+        id: doc.id,
+        orderNumber: purchaseData["orderNumber"] ?? '',
+        phones: (purchaseData['phones'] as List<dynamic>?)?.cast<DocumentReference>() ?? [],
+        supplierRef: purchaseData["supplierId"],
+        amount: (purchaseData["amount"] as num?)?.toDouble() ?? 0.0,
+        gst: (purchaseData["gst"] as num?)?.toDouble() ?? 0.0,
+        pst: (purchaseData["pst"] as num?)?.toDouble() ?? 0.0,
+        paymentSource: BalanceType.values.firstWhere(
+          (type) => type.toString() == 'BalanceType.${purchaseData["paymentSource"]}',
+          orElse: () => BalanceType.cash,
+        ),
+        date: (purchaseData["date"] as Timestamp?)?.toDate() ?? DateTime.now(),
+        total: (purchaseData["total"] ?? 0.0).toDouble(),
+        paid: (purchaseData["paid"] ?? 0.0).toDouble(),
+        credit: (purchaseData["credit"] ?? 0.0).toDouble(),
+        snapshot: doc,
+        supplierName: purchaseData["supplierName"] ?? "",
+        bankPaid: purchaseData["bankPaid"] != null
+            ? (purchaseData["bankPaid"] as num).toDouble()
+            : null,
+        upiPaid: purchaseData["cardPaid"] != null
+            ? (purchaseData["cardPaid"] as num).toDouble()
+            : null,
+        cashPaid: purchaseData["cashPaid"] != null
+            ? (purchaseData["cashPaid"] as num).toDouble()
+            : null,
+      );
+    } catch (e) {
+      print('Error creating Purchase from Firestore document ${doc.id}: $e');
+      // Return a default purchase if there's an error
+      return Purchase(
+        orderNumber: "",
+        phones: [],
+        supplierRef: FirebaseFirestore.instance.collection('Suppliers').doc('default'),
+        amount: 0.0,
+        gst: 0.0,
+        pst: 0.0,
+        paymentSource: BalanceType.cash,
+        date: DateTime.now(),
+        supplierName: "",
+      );
+    }
   }
 }
 

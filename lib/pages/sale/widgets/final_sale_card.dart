@@ -30,7 +30,6 @@ class _FinalSaleCardState extends State<FinalSaleCard> {
   final TextEditingController _pstController = TextEditingController();
   late TextEditingController _amountController;
   final TextEditingController _totalController = TextEditingController();
-  final TextEditingController _paidController = TextEditingController();
   final TextEditingController _creditController = TextEditingController();
   final TextEditingController _middlemanTotalController =
       TextEditingController();
@@ -142,7 +141,6 @@ class _FinalSaleCardState extends State<FinalSaleCard> {
   // Errors
   String? gstError;
   String? pstError;
-  String? paidError;
   String? middlemanPaidError;
   String? creditError;
 
@@ -511,49 +509,37 @@ class _FinalSaleCardState extends State<FinalSaleCard> {
                         (!validate())
                             ? null
                             : () async {
+                              // Calculate total paid amount
+                              double totalPaid = (double.tryParse(_bankController.text) ?? 0.0) +
+                                  (double.tryParse(_upiController.text) ?? 0.0) +
+                                  (double.tryParse(_cashController.text) ?? 0.0);
+
                               final sale = Sale(
                                 orderNumber: widget.order.orderNumber!,
                                 phones: widget.order.phones!,
-                                originalPrice:
-                                    widget.order.originalPrice ?? 0.0,
+                                originalPrice: widget.order.originalPrice ?? 0.0,
                                 customerRef: widget.order.scref!,
-                                bankPaid: double.parse(_bankController.text),
-                                upiPaid: double.parse(_upiController.text),
-                                cashPaid: double.parse(_cashController.text),
-
+                                bankPaid: double.tryParse(_bankController.text) ?? 0.0,
+                                upiPaid: double.tryParse(_upiController.text) ?? 0.0,
+                                cashPaid: double.tryParse(_cashController.text) ?? 0.0,
                                 amount: widget.order.amount,
                                 customerName: widget.order.scName,
-                                gst: double.parse(_gstController.text),
-                                pst: double.parse(_pstController.text),
-
+                                gst: double.tryParse(_gstController.text) ?? 0.0,
+                                pst: double.tryParse(_pstController.text) ?? 0.0,
                                 date: widget.order.date!,
-                                total:
-                                    double.tryParse(_totalController.text) ??
-                                    0.0,
-                                paid:
-                                    double.tryParse(_paidController.text) ??
-                                    0.0,
-                                credit:
-                                    double.tryParse(_creditController.text) ??
-                                    0.0,
-                                middlemanRef:
-                                    selectedMiddleman?.snapshot?.reference,
-                                mTotal:
-                                    double.tryParse(
-                                      _middlemanTotalController.text,
-                                    ) ??
-                                    0.0,
-                                mPaid:
-                                    double.tryParse(
-                                      _middlemanPaidController.text,
-                                    ) ??
-                                    0.0,
-                                mCredit:
-                                    -1 *
-                                    (double.tryParse(
-                                          _middlemancreditController.text,
-                                        ) ??
-                                        0),
+                                total: double.tryParse(_totalController.text) ?? 0.0,
+                                paid: totalPaid,
+                                credit: double.tryParse(_creditController.text) ?? 0.0,
+                                middlemanRef: selectedMiddleman?.snapshot?.reference,
+                                mTotal: selectedMiddleman != null
+                                    ? (double.tryParse(_middlemanTotalController.text) ?? 0.0)
+                                    : 0.0,
+                                mPaid: selectedMiddleman != null
+                                    ? (double.tryParse(_middlemanPaidController.text) ?? 0.0)
+                                    : 0.0,
+                                mCredit: selectedMiddleman != null
+                                    ? -1 * (double.tryParse(_middlemancreditController.text) ?? 0.0)
+                                    : 0.0,
                               );
                               showDialog(
                                 context: context,
@@ -565,6 +551,7 @@ class _FinalSaleCardState extends State<FinalSaleCard> {
                                 },
                               );
                               try {
+                                print('Creating sale with data: ${sale.toFirestore()}');
                                 await createSale(widget.order, sale);
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -637,7 +624,7 @@ class _FinalSaleCardState extends State<FinalSaleCard> {
                                                       });
                                                     },
                                                     description:
-                                                        "This will be subtracted from the total amount", // Fixed typo
+                                                        "This will be subtracted from the total amount",
                                                   ),
                                                 ],
                                               ),
@@ -709,13 +696,18 @@ class _FinalSaleCardState extends State<FinalSaleCard> {
                                     },
                                   );
                                 }
-                              } catch (e) {
+                              } catch (e, stackTrace) {
+                                print('Error creating sale: $e');
+                                print('Stack trace: $stackTrace');
                                 if (context.mounted) {
                                   if (context.mounted) {
                                     Navigator.pop(context);
                                   }
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text("Error: $e")),
+                                    SnackBar(
+                                      content: Text("Error creating sale: $e"),
+                                      backgroundColor: Colors.red,
+                                    ),
                                   );
                                 }
                               }
@@ -742,28 +734,46 @@ class _FinalSaleCardState extends State<FinalSaleCard> {
   }
 
   bool validate() {
-    bool basicValidation =
-        gstError == null &&
-        pstError == null &&
-        paidError == null &&
-        creditError == null &&
-        _amountController.text.trim().isNotEmpty &&
-        _totalController.text.trim().isNotEmpty &&
-        _gstController.text.trim().isNotEmpty &&
-        _pstController.text.trim().isNotEmpty &&
-        _bankController.text.trim().isNotEmpty &&
-        _upiController.text.trim().isNotEmpty &&
-        _cashController.text.trim().isNotEmpty &&
-        _creditController.text.trim().isNotEmpty;
-
-    if (selectedMiddleman == null) {
-      return basicValidation;
+    // Check for validation errors
+    if (gstError != null || pstError != null || creditError != null || 
+        middlemanPaidError != null) {
+      return false;
     }
 
-    return basicValidation &&
-        _middlemanTotalController.text.trim().isNotEmpty &&
-        _middlemanPaidController.text.trim().isNotEmpty &&
-        _middlemancreditController.text.trim().isNotEmpty;
+    // Check required fields
+    if (_amountController.text.trim().isEmpty ||
+        _totalController.text.trim().isEmpty ||
+        _gstController.text.trim().isEmpty ||
+        _pstController.text.trim().isEmpty ||
+        _bankController.text.trim().isEmpty ||
+        _upiController.text.trim().isEmpty ||
+        _cashController.text.trim().isEmpty ||
+        _creditController.text.trim().isEmpty) {
+      return false;
+    }
+
+    // Check payment amounts are valid numbers
+    if (double.tryParse(_bankController.text) == null ||
+        double.tryParse(_upiController.text) == null ||
+        double.tryParse(_cashController.text) == null) {
+      return false;
+    }
+
+    // If middleman is selected, validate middleman fields
+    if (selectedMiddleman != null) {
+      if (_middlemanTotalController.text.trim().isEmpty ||
+          _middlemanPaidController.text.trim().isEmpty ||
+          _middlemancreditController.text.trim().isEmpty) {
+        return false;
+      }
+      
+      if (double.tryParse(_middlemanTotalController.text) == null ||
+          double.tryParse(_middlemanPaidController.text) == null) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   @override

@@ -32,22 +32,38 @@ class Supplier extends GenericFirebaseObject<Supplier> {
 
   @override
   factory Supplier.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    return Supplier(
-      id: doc.id,
-      name: data['name'] ?? '',
-      phone: data['phone'] ?? '',
-      email: data['email'] ?? '',
-      address: data['address'] ?? '',
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      balance: (data['balance'] ?? 0.0).toDouble(),
-      transactionHistory:
-          (data['transactionHistory'] as List<dynamic>?)
-              ?.cast<DocumentReference>(),
-      snapshot: doc,
-      updatedAt: (data['updatedAt'] as Timestamp),
-      notes: data['notes'] ?? '',
-    );
+    try {
+      final data = doc.data();
+      if (data == null) {
+        throw ArgumentError('Document data is null');
+      }
+      
+      final supplierData = data as Map<String, dynamic>;
+      
+      return Supplier(
+        id: doc.id,
+        name: supplierData['name'] ?? '',
+        phone: supplierData['phone'] ?? '',
+        email: supplierData['email'] ?? '',
+        address: supplierData['address'] ?? '',
+        createdAt: (supplierData['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        balance: (supplierData['balance'] ?? 0.0).toDouble(),
+        transactionHistory: (supplierData['transactionHistory'] as List<dynamic>?)
+                ?.cast<DocumentReference>(),
+        snapshot: doc,
+        updatedAt: (supplierData['updatedAt'] as Timestamp?),
+        notes: supplierData['notes'] ?? '',
+      );
+    } catch (e) {
+      print('Error creating Supplier from Firestore document ${doc.id}: $e');
+      // Return a default supplier if there's an error
+      return Supplier(
+        name: "Unknown",
+        phone: "",
+        createdAt: DateTime.now(),
+        updatedAt: Timestamp.now(),
+      );
+    }
   }
 
   @override

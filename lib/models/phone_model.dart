@@ -30,12 +30,28 @@ class PhoneModel extends GenericFirebaseObject<PhoneModel> {
   }
 
   static PhoneModel fromFirestore(DocumentSnapshot doc) {
-    return PhoneModel(
-      id: doc.id,
-      name: doc["name"],
-      brand: doc.reference.parent.parent!,
-      snapshot: doc,
-    );
+    try {
+      final data = doc.data();
+      if (data == null) {
+        throw ArgumentError('Document data is null');
+      }
+      
+      final modelData = data as Map<String, dynamic>;
+      
+      return PhoneModel(
+        id: doc.id,
+        name: modelData["name"] ?? '',
+        brand: doc.reference.parent.parent!,
+        snapshot: doc,
+      );
+    } catch (e) {
+      print('Error creating PhoneModel from Firestore document ${doc.id}: $e');
+      // Return a default model if there's an error
+      return PhoneModel(
+        name: "Unknown",
+        brand: FirebaseFirestore.instance.collection('PhoneBrands').doc('default'),
+      );
+    }
   }
 
   @override

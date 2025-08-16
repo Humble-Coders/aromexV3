@@ -40,25 +40,53 @@ class Balance {
   }
 
   static Future<Balance> fromType(BalanceType type) async {
-    final snapshot =
-        await FirebaseFirestore.instance
-            .collection(Balance.collectionName)
-            .doc(balanceTypeTitles[type])
-            .get();
+    final docRef = FirebaseFirestore.instance
+        .collection(Balance.collectionName)
+        .doc(balanceTypeTitles[type]);
+    
+    final snapshot = await docRef.get();
+
+    if (!snapshot.exists) {
+      // Create a new balance document if it doesn't exist
+      final newBalance = Balance(
+        amount: 0.0,
+        lastTransaction: Timestamp.now(),
+        type: type,
+      );
+      
+      await docRef.set(newBalance._toJson());
+      return newBalance;
+    }
 
     return Balance.fromFirestore(snapshot);
   }
 
   factory Balance.fromFirestore(DocumentSnapshot doc) {
-    final json = doc.data() as Map<String, dynamic>;
-    return Balance(
-      type: BalanceType.values.firstWhere(
-        (e) => balanceTypeTitles[e] == doc.id,
-        orElse: () => throw ArgumentError('Invalid BalanceType: ${doc.id}'),
-      ),
-      amount: (json['amount'] as num).toDouble(),
-      lastTransaction: json['last_transaction'] as Timestamp,
-    )..note = json['note'];
+    try {
+      final json = doc.data();
+      if (json == null) {
+        throw ArgumentError('Document data is null');
+      }
+      
+      final data = json as Map<String, dynamic>;
+      
+      return Balance(
+        type: BalanceType.values.firstWhere(
+          (e) => balanceTypeTitles[e] == doc.id,
+          orElse: () => throw ArgumentError('Invalid BalanceType: ${doc.id}'),
+        ),
+        amount: (data['amount'] as num?)?.toDouble() ?? 0.0,
+        lastTransaction: (data['last_transaction'] as Timestamp?) ?? Timestamp.now(),
+      )..note = data['note'] as String?;
+    } catch (e) {
+      print('Error creating Balance from Firestore document ${doc.id}: $e');
+      // Return a default balance if there's an error
+      return Balance(
+        amount: 0.0,
+        lastTransaction: Timestamp.now(),
+        type: BalanceType.bank, // Default type
+      );
+    }
   }
 
   Future<void> addAmount(
@@ -206,7 +234,7 @@ class Balance {
         .collection(Balance.collectionName)
         .doc(balanceTypeTitles[type]);
 
-    await docRef.update(json);
+    await docRef.set(json, SetOptions(merge: true));
   }
 
   Map<String, dynamic> _toJson() {
@@ -229,27 +257,33 @@ class Balance {
     double? bankPaid,
     double? creditCardPaid,
   }) async {
-    // Create the transaction object
-    AT.Transaction transaction = AT.Transaction(
-      amount: amount,
-      time: transactionTime,
-      type: transactionType,
-      purchaseRef: purchaseRef,
-      saleRef: saleRef,
-      category: category,
-      note: expenseNote,
-      cashPaid: cashPaid,
-      bankPaid: bankPaid,
-      creditCardPaid: creditCardPaid,
-    );
+    try {
+      // Create the transaction object
+      AT.Transaction transaction = AT.Transaction(
+        amount: amount,
+        time: transactionTime,
+        type: transactionType,
+        purchaseRef: purchaseRef,
+        saleRef: saleRef,
+        category: category,
+        note: expenseNote,
+        cashPaid: cashPaid,
+        bankPaid: bankPaid,
+        creditCardPaid: creditCardPaid,
+      );
 
-    // Add the transaction to the balance-specific subcollection
-    // This was the issue - you need to add to the balance's subcollection, not the root collection
-    await FirebaseFirestore.instance
-        .collection(Balance.collectionName) // 'Balances'
-        .doc(balanceTypeTitles[type]) // e.g., 'Expense Record'
-        .collection(AT.Transaction.collectionName) // 'Transactions'
-        .add(transaction.toJson());
+      // Add the transaction to the balance-specific subcollection
+      await FirebaseFirestore.instance
+          .collection(Balance.collectionName) // 'Balances'
+          .doc(balanceTypeTitles[type]) // e.g., 'Expense Record'
+          .collection(AT.Transaction.collectionName) // 'Transactions'
+          .add(transaction.toJson());
+          
+      print('Created transaction for ${balanceTypeTitles[type]}: amount=$amount, type=$transactionType');
+    } catch (e) {
+      print('Error creating transaction for ${balanceTypeTitles[type]}: $e');
+      // Don't throw the error to prevent the entire operation from failing
+    }
   }
 
   Future<List<AT.Transaction>> getTransactions({

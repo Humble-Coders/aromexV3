@@ -20,7 +20,26 @@ class StorageLocation extends GenericFirebaseObject<StorageLocation> {
   }
 
   static StorageLocation fromFirestore(DocumentSnapshot doc) {
-    return StorageLocation(id: doc.id, name: doc["name"], snapshot: doc);
+    try {
+      final data = doc.data();
+      if (data == null) {
+        throw ArgumentError('Document data is null');
+      }
+      
+      final locationData = data as Map<String, dynamic>;
+      
+      return StorageLocation(
+        id: doc.id, 
+        name: locationData["name"] ?? '', 
+        snapshot: doc
+      );
+    } catch (e) {
+      print('Error creating StorageLocation from Firestore document ${doc.id}: $e');
+      // Return a default location if there's an error
+      return StorageLocation(
+        name: "Unknown",
+      );
+    }
   }
 
   @override

@@ -389,35 +389,11 @@ class _InventoryPageState extends State<InventoryPage> {
                       phoneBrand: selectedPhoneBrand!,
                       data:
                           phones != null
-                              ? filter(
-                                    locationPhoneMap[selectedStorageLocation]!,
-                                    selectedStorageLocation,
-                                    selectedPhoneBrand,
-                                    null,
-                                    null,
-                                    null,
-                                    null,
-                                    null,
+                              ? _getGroupedModelsData(
+                                    selectedStorageLocation!,
+                                    selectedPhoneBrand!,
+                                    phoneModelSearchQuery,
                                   )
-                                  .where(
-                                    (phone) =>
-                                        phone.model != null &&
-                                        PhoneModel.fromFirestore(
-                                          phone.model!,
-                                        ).name.toLowerCase().contains(
-                                          phoneModelSearchQuery.toLowerCase(),
-                                        ),
-                                  )
-                                  .map(
-                                    (phone) => LocationInventoryDataModels(
-                                      phoneModel: PhoneModel.fromFirestore(
-                                        phone.model!,
-                                      ),
-                                      count:
-                                          1, // Assuming each phone is counted once
-                                    ),
-                                  )
-                                  .toList()
                               : null,
                       onModelSelected: (model) {
                         setState(() {
@@ -495,5 +471,55 @@ class _InventoryPageState extends State<InventoryPage> {
       }
       return true;
     }).toList();
+  }
+
+  List<LocationInventoryDataModels> _getGroupedModelsData(
+    StorageLocation storageLocation,
+    PhoneBrand phoneBrand,
+    String searchQuery,
+  ) {
+    List<Phone> filteredPhones = filter(
+      phones!,
+      storageLocation,
+      phoneBrand,
+      null,
+      null,
+      null,
+      null,
+      null,
+    );
+
+    print('Filtered phones count: ${filteredPhones.length}');
+    print('Search query: "$searchQuery"');
+
+    Map<PhoneModel, int> modelCountMap = {};
+    for (var phone in filteredPhones) {
+      if (phone.model != null) {
+        PhoneModel model = PhoneModel.fromFirestore(phone.model!);
+        if (model.name.toLowerCase().contains(searchQuery.toLowerCase())) {
+          if (modelCountMap.containsKey(model)) {
+            modelCountMap[model] = modelCountMap[model]! + 1;
+          } else {
+            modelCountMap[model] = 1;
+          }
+        }
+      }
+    }
+
+    print('Unique models found: ${modelCountMap.length}');
+    for (var entry in modelCountMap.entries) {
+      print('Model: ${entry.key.name}, Count: ${entry.value}');
+    }
+
+    List<LocationInventoryDataModels> data = [];
+    for (var entry in modelCountMap.entries) {
+      data.add(
+        LocationInventoryDataModels(
+          phoneModel: entry.key,
+          count: entry.value,
+        ),
+      );
+    }
+    return data;
   }
 }

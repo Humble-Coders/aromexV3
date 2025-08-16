@@ -86,23 +86,45 @@ class Phone extends GenericFirebaseObject<Phone> {
   }
 
   factory Phone.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return Phone(
-      id: doc.id,
-      modelRef: doc.reference.parent.parent!,
-      color: doc["color"],
-      capacity: doc["capacity"].toDouble(),
-      price: doc["price"].toDouble(),
-      imei: doc["imei"],
-      status: doc["status"],
-      carrier: doc["carrier"],
-      storageLocationRef: doc["storageLocationRef"] as DocumentReference,
-      snapshot: doc,
-      brandRef: doc["brandRef"] as DocumentReference,
-      sellingPrice: (data["sellingPrice"] as num?)?.toDouble(),
-      saleRef: data["saleRef"] as DocumentReference?,
-      purchaseRef: data["purchaseRef"] as DocumentReference?,
-    );
+    try {
+      final data = doc.data();
+      if (data == null) {
+        throw ArgumentError('Document data is null');
+      }
+      
+      final phoneData = data as Map<String, dynamic>;
+      
+      return Phone(
+        id: doc.id,
+        modelRef: doc.reference.parent.parent!,
+        color: phoneData["color"] ?? '',
+        capacity: (phoneData["capacity"] as num?)?.toDouble() ?? 0.0,
+        price: (phoneData["price"] as num?)?.toDouble() ?? 0.0,
+        imei: phoneData["imei"] ?? '',
+        status: phoneData["status"] ?? false,
+        carrier: phoneData["carrier"] ?? '',
+        storageLocationRef: phoneData["storageLocationRef"] as DocumentReference? ?? 
+            FirebaseFirestore.instance.collection('StorageLocations').doc('default'),
+        snapshot: doc,
+        brandRef: phoneData["brandRef"] as DocumentReference?,
+        sellingPrice: (phoneData["sellingPrice"] as num?)?.toDouble(),
+        saleRef: phoneData["saleRef"] as DocumentReference?,
+        purchaseRef: phoneData["purchaseRef"] as DocumentReference?,
+      );
+    } catch (e) {
+      print('Error creating Phone from Firestore document ${doc.id}: $e');
+      // Return a default phone if there's an error
+      return Phone(
+        modelRef: FirebaseFirestore.instance.collection('PhoneModels').doc('default'),
+        color: "Unknown",
+        capacity: 0.0,
+        price: 0.0,
+        imei: "Unknown",
+        status: false,
+        carrier: "Unknown",
+        storageLocationRef: FirebaseFirestore.instance.collection('StorageLocations').doc('default'),
+      );
+    }
   }
 
   @override

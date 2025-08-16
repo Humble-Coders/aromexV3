@@ -32,22 +32,38 @@ class Customer extends GenericFirebaseObject<Customer> {
 
   @override
   factory Customer.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    return Customer(
-      id: doc.id,
-      name: data['name'] ?? '',
-      phone: data['phone'] ?? '',
-      email: data['email'] ?? '',
-      address: data['address'] ?? '',
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      balance: (data['balance'] ?? 0.0).toDouble(),
-      transactionHistory:
-          (data['transactionHistory'] as List<dynamic>?)
-              ?.cast<DocumentReference>(),
-      snapshot: doc,
-      updatedAt: (data['updatedAt'] as Timestamp?),
-      notes: data['notes'] ?? '',
-    );
+    try {
+      final data = doc.data();
+      if (data == null) {
+        throw ArgumentError('Document data is null');
+      }
+      
+      final customerData = data as Map<String, dynamic>;
+      
+      return Customer(
+        id: doc.id,
+        name: customerData['name'] ?? '',
+        phone: customerData['phone'] ?? '',
+        email: customerData['email'] ?? '',
+        address: customerData['address'] ?? '',
+        createdAt: (customerData['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        balance: (customerData['balance'] ?? 0.0).toDouble(),
+        transactionHistory: (customerData['transactionHistory'] as List<dynamic>?)
+                ?.cast<DocumentReference>(),
+        snapshot: doc,
+        updatedAt: (customerData['updatedAt'] as Timestamp?),
+        notes: customerData['notes'] ?? '',
+      );
+    } catch (e) {
+      print('Error creating Customer from Firestore document ${doc.id}: $e');
+      // Return a default customer if there's an error
+      return Customer(
+        name: "Unknown",
+        phone: "",
+        createdAt: DateTime.now(),
+        updatedAt: Timestamp.now(),
+      );
+    }
   }
 
   @override

@@ -49,20 +49,20 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyA6tIhrdzr1FCwUqtNeuRoLfukvyB1oPd8',
-    appId: '1:607850843500:ios:ff40fb256478f43dc37749',
-    messagingSenderId: '607850843500',
-    projectId: 'aromex-4a032',
-    storageBucket: 'aromex-4a032.firebasestorage.app',
+    apiKey: 'AIzaSyDuRQ3aeeasQg48Uz6KL37ETzEBTYPrDoQ',
+    appId: '1:428354906768:ios:618c39d8499b95fd16c615',
+    messagingSenderId: '428354906768',
+    projectId: 'aromex-9f0b1',
+    storageBucket: 'aromex-9f0b1.firebasestorage.app',
     iosBundleId: 'com.example.pukhrajMobiles',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyA6tIhrdzr1FCwUqtNeuRoLfukvyB1oPd8',
-    appId: '1:607850843500:ios:ff40fb256478f43dc37749',
-    messagingSenderId: '607850843500',
-    projectId: 'aromex-4a032',
-    storageBucket: 'aromex-4a032.firebasestorage.app',
+    apiKey: 'AIzaSyDuRQ3aeeasQg48Uz6KL37ETzEBTYPrDoQ',
+    appId: '1:428354906768:ios:618c39d8499b95fd16c615',
+    messagingSenderId: '428354906768',
+    projectId: 'aromex-9f0b1',
+    storageBucket: 'aromex-9f0b1.firebasestorage.app',
     iosBundleId: 'com.example.pukhrajMobiles',
   );
 
@@ -77,13 +77,13 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBBIOfnJeKiwwH065Cjvbk95MVNCe9bj2c',
-    appId: '1:607850843500:web:e98ae0953f9e8e49c37749',
-    messagingSenderId: '607850843500',
-    projectId: 'aromex-4a032',
-    authDomain: 'aromex-4a032.firebaseapp.com',
-    storageBucket: 'aromex-4a032.firebasestorage.app',
-    measurementId: 'G-V4X2QQ57QP',
+    apiKey: 'AIzaSyAS1lhMpoUO2i0Fm5aYDgKA-Zy2T7Iu1NI',
+    appId: '1:428354906768:web:5759263f6b841bad16c615',
+    messagingSenderId: '428354906768',
+    projectId: 'aromex-9f0b1',
+    authDomain: 'aromex-9f0b1.firebaseapp.com',
+    storageBucket: 'aromex-9f0b1.firebasestorage.app',
+    measurementId: 'G-77YEQG9YVS',
   );
 
 }

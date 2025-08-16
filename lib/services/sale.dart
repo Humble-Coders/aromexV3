@@ -31,16 +31,38 @@ Future<void> addCreditToMiddleman(
   DocumentReference? middleman,
   double credit,
 ) async {
-  if (middleman == null) return;
+  if (middleman == null || credit == 0) return;
 
-  final docRef = FirebaseFirestore.instance
-      .collection('Middlemen')
-      .doc(middleman.id);
-  final snapshot = await docRef.get();
-  final data = snapshot.data()!;
-  final currentBalance = (data['balance'] ?? 0.0) as num;
-
-  await docRef.update({'balance': currentBalance + credit});
+  try {
+    final docRef = FirebaseFirestore.instance
+        .collection('Middlemen')
+        .doc(middleman.id);
+    final snapshot = await docRef.get();
+    
+    if (!snapshot.exists) {
+      print('Warning: Middleman document does not exist: ${middleman.id}');
+      return;
+    }
+    
+    final data = snapshot.data();
+    if (data == null) {
+      print('Warning: Middleman document data is null: ${middleman.id}');
+      return;
+    }
+    
+    final currentBalance = (data['balance'] ?? 0.0) as num;
+    final newBalance = currentBalance + credit;
+    
+    await docRef.update({
+      'balance': newBalance,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    
+    print('Updated middleman ${middleman.id} balance: $currentBalance -> $newBalance (credit: $credit)');
+  } catch (e) {
+    print('Error updating middleman balance: $e');
+    // Don't throw the error to prevent the entire sale from failing
+  }
 }
 
 Future<void> addBalance(
@@ -53,75 +75,124 @@ Future<void> addBalance(
 ) async {
   total -= credit;
 
-  await Future.wait([
-    // Add to Bank balance
-    if ((bankPaid ?? 0) > 0)
-      Balance.fromType(BalanceType.bank).then((balance) async {
-        await balance.addAmount(
-          bankPaid!,
-          transactionType: TransactionType.sale,
-          saleRef: saleRef,
-        );
-      }),
+  try {
+    await Future.wait([
+      // Add to Bank balance
+      if ((bankPaid ?? 0) > 0)
+        Balance.fromType(BalanceType.bank).then((balance) async {
+          try {
+            await balance.addAmount(
+              bankPaid!,
+              transactionType: TransactionType.sale,
+              saleRef: saleRef,
+            );
+          } catch (e) {
+            print('Error updating bank balance: $e');
+          }
+        }),
 
-    // Add to Cash balance
-    if ((cashPaid ?? 0) > 0)
-      Balance.fromType(BalanceType.cash).then((balance) async {
-        await balance.addAmount(
-          cashPaid!,
-          transactionType: TransactionType.sale,
-          saleRef: saleRef,
-        );
-      }),
+      // Add to Cash balance
+      if ((cashPaid ?? 0) > 0)
+        Balance.fromType(BalanceType.cash).then((balance) async {
+          try {
+            await balance.addAmount(
+              cashPaid!,
+              transactionType: TransactionType.sale,
+              saleRef: saleRef,
+            );
+          } catch (e) {
+            print('Error updating cash balance: $e');
+          }
+        }),
 
-    // Add to UPI balance
-    if ((upiPaid ?? 0) > 0)
-      Balance.fromType(BalanceType.upi).then((balance) async {
-        await balance.addAmount(
-          upiPaid!,
-          transactionType: TransactionType.sale,
-          saleRef: saleRef,
-        );
-      }),
+      // Add to UPI balance
+      if ((upiPaid ?? 0) > 0)
+        Balance.fromType(BalanceType.upi).then((balance) async {
+          try {
+            await balance.addAmount(
+              upiPaid!,
+              transactionType: TransactionType.sale,
+              saleRef: saleRef,
+            );
+          } catch (e) {
+            print('Error updating UPI balance: $e');
+          }
+        }),
 
-    // Handle credit
-    if (credit > 0)
-      Balance.fromType(BalanceType.totalOwe).then((balance) async {
-        await balance.addAmount(
-          credit,
-          transactionType: TransactionType.sale,
-          saleRef: saleRef,
-        );
-      }),
-  ]);
+      // Handle credit
+      if (credit > 0)
+        Balance.fromType(BalanceType.totalOwe).then((balance) async {
+          try {
+            await balance.addAmount(
+              credit,
+              transactionType: TransactionType.sale,
+              saleRef: saleRef,
+            );
+          } catch (e) {
+            print('Error updating total owe balance: $e');
+          }
+        }),
+    ]);
+  } catch (e) {
+    print('Error in addBalance: $e');
+    // Don't throw the error to prevent the entire sale from failing
+  }
 }
 
 Future<void> addCreditToCustomer(
   DocumentReference customer,
   double credit,
 ) async {
-  final docRef = FirebaseFirestore.instance
-      .collection('Customers')
-      .doc(customer.id);
+  try {
+    final docRef = FirebaseFirestore.instance
+        .collection('Customers')
+        .doc(customer.id);
 
-  final snapshot = await docRef.get();
-  final data = snapshot.data()!;
-  final currentBalance = (data['balance'] ?? 0.0) as num;
-
-  await docRef.update({'balance': currentBalance + credit});
+    final snapshot = await docRef.get();
+    if (!snapshot.exists) {
+      print('Warning: Customer document does not exist: ${customer.id}');
+      return;
+    }
+    
+    final data = snapshot.data();
+    if (data == null) {
+      print('Warning: Customer document data is null: ${customer.id}');
+      return;
+    }
+    
+    final currentBalance = (data['balance'] ?? 0.0) as num;
+    final newBalance = currentBalance + credit;
+    
+    await docRef.update({
+      'balance': newBalance,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    
+    print('Updated customer ${customer.id} balance: $currentBalance -> $newBalance (credit: $credit)');
+  } catch (e) {
+    print('Error updating customer balance: $e');
+    // Don't throw the error to prevent the entire sale from failing
+  }
 }
 
 Future<void> addSaleToCustomer(
   DocumentReference customer,
   DocumentReference saleRef,
 ) async {
-  await FirebaseFirestore.instance
-      .collection('Customers')
-      .doc(customer.id)
-      .update({
-        'transactionHistory': FieldValue.arrayUnion([saleRef]),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+  try {
+    await FirebaseFirestore.instance
+        .collection('Customers')
+        .doc(customer.id)
+        .update({
+          'transactionHistory': FieldValue.arrayUnion([saleRef]),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+    
+    print('Added sale ${saleRef.id} to customer ${customer.id} transaction history');
+  } catch (e) {
+    print('Error adding sale to customer transaction history: $e');
+    // Don't throw the error to prevent the entire sale from failing
+  }
 }
 
 Future<void> addSaleToMiddleman(
@@ -129,19 +200,27 @@ Future<void> addSaleToMiddleman(
   DocumentReference saleRef,
 ) async {
   if (middleman == null) return;
-  await FirebaseFirestore.instance
-      .collection('Middlemen')
-      .doc(middleman.id)
-      .update({
-        'transactionHistory': FieldValue.arrayUnion([saleRef]),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+  
+  try {
+    await FirebaseFirestore.instance
+        .collection('Middlemen')
+        .doc(middleman.id)
+        .update({
+          'transactionHistory': FieldValue.arrayUnion([saleRef]),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+    
+    print('Added sale ${saleRef.id} to middleman ${middleman.id} transaction history');
+  } catch (e) {
+    print('Error adding sale to middleman transaction history: $e');
+    // Don't throw the error to prevent the entire sale from failing
+  }
 }
 
 Future<void> updateSaleStats(double amount, DocumentReference customer) async {
-  final totalsRef = FirebaseFirestore.instance.collection('Data').doc('Totals');
-
   try {
+    final totalsRef = FirebaseFirestore.instance.collection('Data').doc('Totals');
+
     final totalsSnapshot = await totalsRef.get();
 
     if (!totalsSnapshot.exists) {
@@ -152,6 +231,7 @@ Future<void> updateSaleStats(double amount, DocumentReference customer) async {
         'totalCustomers': 1,
         'updatedAt': FieldValue.serverTimestamp(),
       });
+      print('Created new totals document with first sale');
       return;
     }
 
@@ -173,7 +253,10 @@ Future<void> updateSaleStats(double amount, DocumentReference customer) async {
       'totalCustomers': customerIds.length,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    
+    print('Updated sale stats: totalSales=${currentTotalSales + 1}, totalAmount=${currentTotalAmount + amount}');
   } catch (e) {
     print('Error updating sale stats: $e');
+    // Don't throw the error to prevent the entire sale from failing
   }
 }

@@ -40,9 +40,9 @@ class Sale extends GenericFirebaseObject<Sale> {
     required this.gst,
     required this.pst,
     required this.date,
-    this.total = 0.0,
-    this.paid = 0.0,
-    this.credit = 0.0,
+    required this.total,
+    required this.paid,
+    required this.credit,
     required this.customerRef,
     required this.phones,
     this.middlemanRef,
@@ -61,7 +61,6 @@ class Sale extends GenericFirebaseObject<Sale> {
   @override
   String get collName => collectionName;
 
-  @override
   @override
   Map<String, dynamic> toFirestore() {
     Map<String, dynamic> data = {
@@ -98,45 +97,65 @@ class Sale extends GenericFirebaseObject<Sale> {
   }
 
   factory Sale.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    return Sale(
-      id: doc.id,
-      orderNumber: data["orderNumber"] ?? "",
-      originalPrice: (data["originalPrice"] ?? 0.0).toDouble(),
-      amount: (data['amount'] ?? 0.0).toDouble(),
-      gst: (data['gst'] ?? 0.0).toDouble(),
-      pst: (data['pst'] ?? 0.0).toDouble(),
-
-      date: (data['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      total: (data['total'] ?? 0.0).toDouble(),
-      paid: (data['paid'] ?? 0.0).toDouble(),
-      credit: (data['credit'] ?? 0.0).toDouble(),
-      customerRef: data["customerId"],
-      phones:
-          (data['phones'] as List<dynamic>?)
-              ?.map((e) => e as DocumentReference)
-              .toList() ??
-          [],
-      snapshot: doc,
-      middlemanRef: data["middlemanId"],
-      mTotal: (data['mTotal'] ?? 0.0).toDouble(),
-      mPaid: (data['mPaid'] ?? 0.0).toDouble(),
-      mCredit: (data['mCredit'] ?? 0.0).toDouble(),
-      customerName: data["customerName"] ?? "",
-      // Handle nullable payment fields - keep as null if not present
-      bankPaid:
-          data["bankPaid"] != null
-              ? (data["bankPaid"] as num).toDouble()
-              : null,
-      upiPaid:
-          data["cardPaid"] != null
-              ? (data["cardPaid"] as num).toDouble()
-              : null,
-      cashPaid:
-          data["cashPaid"] != null
-              ? (data["cashPaid"] as num).toDouble()
-              : null,
-    );
+    try {
+      final data = doc.data();
+      if (data == null) {
+        throw ArgumentError('Document data is null');
+      }
+      
+      final saleData = data as Map<String, dynamic>;
+      
+      return Sale(
+        id: doc.id,
+        orderNumber: saleData["orderNumber"] ?? "",
+        originalPrice: (saleData["originalPrice"] ?? 0.0).toDouble(),
+        amount: (saleData['amount'] ?? 0.0).toDouble(),
+        gst: (saleData['gst'] ?? 0.0).toDouble(),
+        pst: (saleData['pst'] ?? 0.0).toDouble(),
+        date: (saleData['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        total: (saleData['total'] ?? 0.0).toDouble(),
+        paid: (saleData['paid'] ?? 0.0).toDouble(),
+        credit: (saleData['credit'] ?? 0.0).toDouble(),
+        customerRef: saleData["customerId"],
+        phones: (saleData['phones'] as List<dynamic>?)
+                ?.map((e) => e as DocumentReference)
+                .toList() ??
+            [],
+        snapshot: doc,
+        middlemanRef: saleData["middlemanId"],
+        mTotal: (saleData['mTotal'] ?? 0.0).toDouble(),
+        mPaid: (saleData['mPaid'] ?? 0.0).toDouble(),
+        mCredit: (saleData['mCredit'] ?? 0.0).toDouble(),
+        customerName: saleData["customerName"] ?? "",
+        // Handle nullable payment fields - keep as null if not present
+        bankPaid: saleData["bankPaid"] != null
+            ? (saleData["bankPaid"] as num).toDouble()
+            : null,
+        upiPaid: saleData["cardPaid"] != null
+            ? (saleData["cardPaid"] as num).toDouble()
+            : null,
+        cashPaid: saleData["cashPaid"] != null
+            ? (saleData["cashPaid"] as num).toDouble()
+            : null,
+      );
+    } catch (e) {
+      print('Error creating Sale from Firestore document ${doc.id}: $e');
+      // Return a default sale if there's an error
+      return Sale(
+        orderNumber: "",
+        amount: 0.0,
+        gst: 0.0,
+        pst: 0.0,
+        date: DateTime.now(),
+        total: 0.0,
+        paid: 0.0,
+        credit: 0.0,
+        customerRef: FirebaseFirestore.instance.collection('Customers').doc('default'),
+        phones: [],
+        customerName: "",
+        originalPrice: 0.0,
+      );
+    }
   }
 
   // Helper method to create a copy with updated values

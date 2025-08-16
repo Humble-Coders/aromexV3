@@ -20,7 +20,26 @@ class PhoneBrand extends GenericFirebaseObject<PhoneBrand> {
   }
 
   static PhoneBrand fromFirestore(DocumentSnapshot doc) {
-    return PhoneBrand(id: doc.id, name: doc["name"], snapshot: doc);
+    try {
+      final data = doc.data();
+      if (data == null) {
+        throw ArgumentError('Document data is null');
+      }
+      
+      final brandData = data as Map<String, dynamic>;
+      
+      return PhoneBrand(
+        id: doc.id, 
+        name: brandData["name"] ?? '', 
+        snapshot: doc
+      );
+    } catch (e) {
+      print('Error creating PhoneBrand from Firestore document ${doc.id}: $e');
+      // Return a default brand if there's an error
+      return PhoneBrand(
+        name: "Unknown",
+      );
+    }
   }
 
   @override
