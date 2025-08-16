@@ -87,19 +87,23 @@ class Purchase extends GenericFirebaseObject<Purchase> {
       if (data == null) {
         throw ArgumentError('Document data is null');
       }
-      
+
       final purchaseData = data as Map<String, dynamic>;
-      
+
       return Purchase(
         id: doc.id,
         orderNumber: purchaseData["orderNumber"] ?? '',
-        phones: (purchaseData['phones'] as List<dynamic>?)?.cast<DocumentReference>() ?? [],
+        phones:
+            (purchaseData['phones'] as List<dynamic>?)
+                ?.cast<DocumentReference>() ??
+            [],
         supplierRef: purchaseData["supplierId"],
         amount: (purchaseData["amount"] as num?)?.toDouble() ?? 0.0,
         gst: (purchaseData["gst"] as num?)?.toDouble() ?? 0.0,
         pst: (purchaseData["pst"] as num?)?.toDouble() ?? 0.0,
         paymentSource: BalanceType.values.firstWhere(
-          (type) => type.toString() == 'BalanceType.${purchaseData["paymentSource"]}',
+          (type) =>
+              type.toString() == 'BalanceType.${purchaseData["paymentSource"]}',
           orElse: () => BalanceType.cash,
         ),
         date: (purchaseData["date"] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -108,15 +112,18 @@ class Purchase extends GenericFirebaseObject<Purchase> {
         credit: (purchaseData["credit"] ?? 0.0).toDouble(),
         snapshot: doc,
         supplierName: purchaseData["supplierName"] ?? "",
-        bankPaid: purchaseData["bankPaid"] != null
-            ? (purchaseData["bankPaid"] as num).toDouble()
-            : null,
-        upiPaid: purchaseData["cardPaid"] != null
-            ? (purchaseData["cardPaid"] as num).toDouble()
-            : null,
-        cashPaid: purchaseData["cashPaid"] != null
-            ? (purchaseData["cashPaid"] as num).toDouble()
-            : null,
+        bankPaid:
+            purchaseData["bankPaid"] != null
+                ? (purchaseData["bankPaid"] as num).toDouble()
+                : null,
+        upiPaid:
+            purchaseData["cardPaid"] != null
+                ? (purchaseData["cardPaid"] as num).toDouble()
+                : null,
+        cashPaid:
+            purchaseData["cashPaid"] != null
+                ? (purchaseData["cashPaid"] as num).toDouble()
+                : null,
       );
     } catch (e) {
       print('Error creating Purchase from Firestore document ${doc.id}: $e');
@@ -124,7 +131,9 @@ class Purchase extends GenericFirebaseObject<Purchase> {
       return Purchase(
         orderNumber: "",
         phones: [],
-        supplierRef: FirebaseFirestore.instance.collection('Suppliers').doc('default'),
+        supplierRef: FirebaseFirestore.instance
+            .collection('Suppliers')
+            .doc('default'),
         amount: 0.0,
         gst: 0.0,
         pst: 0.0,
@@ -179,7 +188,7 @@ Future<void> generatePurchaseBill({
     }
   }
 
-  // Create the bill with dynamic admin info
+  // Create the bill with dynamic admin info including GST and PST percentages from purchase
   Bill bill = await createBillWithAdminInfo(
     time: purchase.date,
     customer: BillCustomer(
@@ -190,7 +199,9 @@ Future<void> generatePurchaseBill({
     items: items,
     note: note,
     adjustment: adjustment,
-    billType: BillType.purchase,
+    billType: BillType.purchase, // Specify as purchase bill
+    gst: purchase.gst, // Pass GST percentage from purchase
+    pst: purchase.pst, // Pass PST percentage from purchase
   );
 
   await generatePdfInvoice(bill);
@@ -203,19 +214,85 @@ Future<Bill> createPurchaseBillWithAdminInfo({
   required List<BillItem> items,
   String? note,
   double? adjustment,
+  double gst = 0.0, // Added GST percentage parameter
+  double pst = 0.0, // Added PST percentage parameter
 }) async {
-  // This function should be implemented similar to createBillWithAdminInfo
-  // but adapted for purchase bills. You'll need to implement this based on
-  // your existing bill creation logic.
+  // Get admin info for the purchase bill
+  final adminInfo = await AdminService.getAdminInfo();
 
-  // For now, calling the existing function - you may want to create a separate one
-  return await createBillWithAdminInfo(
+  return Bill(
+    adminInfo: adminInfo,
     time: time,
-    customer: supplier, // Using supplier as customer for now
+    customer: supplier, // Using supplier as customer for purchase bill
     orderNumber: orderNumber,
     items: items,
     note: note,
     adjustment: adjustment,
     billType: BillType.purchase,
+    gst: gst, // Pass GST
+    pst: pst, // Pass PST
   );
+}
+
+// Alternative helper function that directly uses Purchase object
+Future<void> generatePurchaseBillFromPurchase({
+  required Purchase purchase,
+  required Supplier supplier,
+  required List<Phone> phones,
+  double? adjustment,
+  String? note,
+}) async {
+  List<BillItem> items = [];
+  Map<Phone, bool> processedPhones = {};
+
+  // Process phones to create bill items
+  for (var phone in phones) {
+    if (processedPhones[phone] == true) continue;
+
+    // Find similar phones
+    List<Phone> similarPhones =
+        phones
+            .where(
+              (p) =>
+                  p.modelRef == phone.modelRef &&
+                  p.color == phone.color &&
+                  p.capacity == phone.capacity &&
+                  p.price == phone.price &&
+                  !processedPhones.containsKey(p),
+            )
+            .toList();
+
+    PhoneModel phoneModel = PhoneModel.fromFirestore(phone.model!);
+    PhoneBrand phoneBrand = PhoneBrand.fromFirestore(phone.brand!);
+
+    items.add(
+      BillItemImpl(
+        quantity: similarPhones.length,
+        title:
+            "${phoneBrand.name} ${phoneModel.name}, ${phone.color}, ${phone.capacity}GB",
+        unitPrice: phone.price,
+      ),
+    );
+
+    for (var similarPhone in similarPhones) {
+      processedPhones[similarPhone] = true;
+    }
+  }
+
+  // Create purchase bill using the dedicated function
+  Bill bill = await createPurchaseBillWithAdminInfo(
+    time: purchase.date,
+    supplier: BillCustomer(
+      name: supplier.name,
+      address: supplier.address.replaceAll(",", "\n"),
+    ),
+    orderNumber: purchase.orderNumber,
+    items: items,
+    note: note,
+    adjustment: adjustment,
+    gst: purchase.gst, // Pass GST percentage from purchase
+    pst: purchase.pst, // Pass PST percentage from purchase
+  );
+
+  await generatePdfInvoice(bill);
 }

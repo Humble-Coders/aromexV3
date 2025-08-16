@@ -717,7 +717,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
                       (sale) => DateFormat.yMd().format(sale.date),
                       (sale) => sale.orderNumber,
                       (sale) => sale.customerName ?? 'N/A',
-                      (sale) => formatCurrency(sale.amount),
+                      (sale) => formatCurrency(sale.total),
                       (sale) => formatPaymentSource(sale),
                       (sale) => formatCurrency(sale.credit ?? 0),
                     ],

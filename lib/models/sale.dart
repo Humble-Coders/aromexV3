@@ -102,9 +102,9 @@ class Sale extends GenericFirebaseObject<Sale> {
       if (data == null) {
         throw ArgumentError('Document data is null');
       }
-      
+
       final saleData = data as Map<String, dynamic>;
-      
+
       return Sale(
         id: doc.id,
         orderNumber: saleData["orderNumber"] ?? "",
@@ -117,7 +117,8 @@ class Sale extends GenericFirebaseObject<Sale> {
         paid: (saleData['paid'] ?? 0.0).toDouble(),
         credit: (saleData['credit'] ?? 0.0).toDouble(),
         customerRef: saleData["customerId"],
-        phones: (saleData['phones'] as List<dynamic>?)
+        phones:
+            (saleData['phones'] as List<dynamic>?)
                 ?.map((e) => e as DocumentReference)
                 .toList() ??
             [],
@@ -128,15 +129,18 @@ class Sale extends GenericFirebaseObject<Sale> {
         mCredit: (saleData['mCredit'] ?? 0.0).toDouble(),
         customerName: saleData["customerName"] ?? "",
         // Handle nullable payment fields - keep as null if not present
-        bankPaid: saleData["bankPaid"] != null
-            ? (saleData["bankPaid"] as num).toDouble()
-            : null,
-        upiPaid: saleData["cardPaid"] != null
-            ? (saleData["cardPaid"] as num).toDouble()
-            : null,
-        cashPaid: saleData["cashPaid"] != null
-            ? (saleData["cashPaid"] as num).toDouble()
-            : null,
+        bankPaid:
+            saleData["bankPaid"] != null
+                ? (saleData["bankPaid"] as num).toDouble()
+                : null,
+        upiPaid:
+            saleData["cardPaid"] != null
+                ? (saleData["cardPaid"] as num).toDouble()
+                : null,
+        cashPaid:
+            saleData["cashPaid"] != null
+                ? (saleData["cashPaid"] as num).toDouble()
+                : null,
       );
     } catch (e) {
       print('Error creating Sale from Firestore document ${doc.id}: $e');
@@ -150,7 +154,9 @@ class Sale extends GenericFirebaseObject<Sale> {
         total: 0.0,
         paid: 0.0,
         credit: 0.0,
-        customerRef: FirebaseFirestore.instance.collection('Customers').doc('default'),
+        customerRef: FirebaseFirestore.instance
+            .collection('Customers')
+            .doc('default'),
         phones: [],
         customerName: "",
         originalPrice: 0.0,
@@ -264,7 +270,7 @@ Future<void> generateBill({
     }
   }
 
-  // Create the bill with dynamic admin info
+  // Create the bill with dynamic admin info including GST and PST percentages from sale
   Bill bill = await createBillWithAdminInfo(
     time: sale.date,
     customer: BillCustomer(
@@ -276,6 +282,8 @@ Future<void> generateBill({
     note: note,
     adjustment: adjustment,
     billType: BillType.sale, // Specify as sale bill
+    gst: sale.gst, // Pass GST percentage from sale
+    pst: sale.pst, // Pass PST percentage from sale
   );
 
   await generatePdfInvoice(bill);

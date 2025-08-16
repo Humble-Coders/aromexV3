@@ -76,7 +76,9 @@ class Bill {
   List<BillItem> items;
   String? note;
   final double? adjustment;
-  final BillType billType; // Added bill type
+  final BillType billType;
+  final double gst; // Added GST field
+  final double pst; // Added PST field
 
   Bill({
     required this.adminInfo,
@@ -86,7 +88,9 @@ class Bill {
     required this.items,
     this.adjustment,
     this.note,
-    required this.billType, // Required bill type
+    required this.billType,
+    this.gst = 0.0, // Default to 0.0
+    this.pst = 0.0, // Default to 0.0
   });
 
   // Getter methods for backward compatibility
@@ -102,8 +106,42 @@ class Bill {
     return formatCurrency(subtotal, decimals: 2, showTrail: true);
   }
 
+  // Calculate GST amount from percentage
+  double get gstAmount {
+    return subtotal * (gst / 100);
+  }
+
+  // Calculate PST amount from percentage
+  double get pstAmount {
+    return subtotal * (pst / 100);
+  }
+
+  String get gstFormatted {
+    return formatCurrency(gstAmount, decimals: 2, showTrail: true);
+  }
+
+  String get pstFormatted {
+    return formatCurrency(pstAmount, decimals: 2, showTrail: true);
+  }
+
+  String get gstPercentageFormatted {
+    return "${gst.toStringAsFixed(1)}%";
+  }
+
+  String get pstPercentageFormatted {
+    return "${pst.toStringAsFixed(1)}%";
+  }
+
+  double get totalTax {
+    return gstAmount + pstAmount;
+  }
+
+  String get totalTaxFormatted {
+    return formatCurrency(totalTax, decimals: 2, showTrail: true);
+  }
+
   double get total {
-    return subtotal - (adjustment ?? 0.0);
+    return subtotal + totalTax - (adjustment ?? 0.0);
   }
 
   String get totalFormatted {
@@ -162,7 +200,9 @@ Future<Bill> createBillWithAdminInfo({
   required List<BillItem> items,
   double? adjustment,
   String? note,
-  required BillType billType, // Added required bill type parameter
+  required BillType billType,
+  double gst = 0.0, // Added GST parameter
+  double pst = 0.0, // Added PST parameter
 }) async {
   final adminInfo = await AdminService.getAdminInfo();
 
@@ -174,7 +214,9 @@ Future<Bill> createBillWithAdminInfo({
     items: items,
     adjustment: adjustment,
     note: note,
-    billType: billType, // Pass bill type
+    billType: billType,
+    gst: gst, // Pass GST
+    pst: pst, // Pass PST
   );
 }
 
@@ -389,7 +431,7 @@ Future<Uint8List> _generatePdfInvoice(Bill bill) async {
               pw.Text("Notes: ${bill.note}", style: baseTextStyle),
             pw.SizedBox(height: 16),
 
-            /// Totals
+            /// Totals Section with GST and PST
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.end,
               children: [
@@ -402,6 +444,36 @@ Future<Uint8List> _generatePdfInvoice(Bill bill) async {
                         pw.Text(bill.subtotalFormatted),
                       ],
                     ),
+                    // Add GST line if GST > 0
+                    if (bill.gst > 0)
+                      pw.Row(
+                        children: [
+                          pw.Text(
+                            "GST (${bill.gstPercentageFormatted}):  ",
+                            style: bold,
+                          ),
+                          pw.Text(bill.gstFormatted),
+                        ],
+                      ),
+                    // Add PST line if PST > 0
+                    if (bill.pst > 0)
+                      pw.Row(
+                        children: [
+                          pw.Text(
+                            "PST (${bill.pstPercentageFormatted}):  ",
+                            style: bold,
+                          ),
+                          pw.Text(bill.pstFormatted),
+                        ],
+                      ),
+                    // Show total tax if either GST or PST > 0
+                    if (bill.totalTax > 0)
+                      pw.Row(
+                        children: [
+                          pw.Text("Total Tax:  ", style: bold),
+                          pw.Text(bill.totalTaxFormatted),
+                        ],
+                      ),
                     pw.Row(
                       children: [
                         pw.Text("Adjustments:  ", style: bold),
@@ -419,6 +491,37 @@ Future<Uint8List> _generatePdfInvoice(Bill bill) async {
                   ],
                 ),
               ],
+            ),
+
+            pw.SizedBox(height: 20),
+
+            /// Electronic signature disclaimer
+            pw.Divider(),
+            pw.SizedBox(height: 8),
+            pw.Center(
+              child: pw.Column(
+                children: [
+                  pw.Text(
+                    "This is an electronically generated bill",
+                    style: pw.TextStyle(
+                      fontSize: 11,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.blue800,
+                    ),
+                    textAlign: pw.TextAlign.center,
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    "No signature required",
+                    style: pw.TextStyle(
+                      fontSize: 10,
+                      fontStyle: pw.FontStyle.italic,
+                      color: PdfColors.grey700,
+                    ),
+                    textAlign: pw.TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           ],
     ),
